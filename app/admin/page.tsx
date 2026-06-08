@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  EXPECTED_ADMIN_TOKEN,
   getAdminToken,
+  getConfiguredToken,
   saveAdminToken,
   verifyAdminPassword,
 } from "@/lib/admin-auth";
@@ -30,7 +30,7 @@ export default function AdminLoginPage() {
   }, [router]);
 
   function submit() {
-    if (!EXPECTED_ADMIN_TOKEN) {
+    if (!getConfiguredToken()) {
       setError("Admin access is not configured (NEXT_PUBLIC_ADMIN_TOKEN unset).");
       return;
     }

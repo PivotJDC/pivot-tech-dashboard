@@ -10,12 +10,21 @@
  */
 const TOKEN_KEY = "pivot.admin.token";
 
-/** The expected admin token, baked in at build time from the env var. */
-export const EXPECTED_ADMIN_TOKEN = process.env.NEXT_PUBLIC_ADMIN_TOKEN ?? "";
+/**
+ * The configured admin token, read directly from NEXT_PUBLIC_ADMIN_TOKEN.
+ * Next.js statically inlines this reference into the client bundle at build
+ * time, so the env var MUST be present in the build environment (netlify.toml
+ * [build.environment] or the Netlify UI) — at runtime there is no process.env
+ * on the client, only the baked-in literal.
+ */
+export function getConfiguredToken(): string {
+  return process.env.NEXT_PUBLIC_ADMIN_TOKEN ?? "";
+}
 
 /** True when the entered password matches the configured admin token. */
 export function verifyAdminPassword(input: string): boolean {
-  return EXPECTED_ADMIN_TOKEN.length > 0 && input === EXPECTED_ADMIN_TOKEN;
+  const token = getConfiguredToken();
+  return token.length > 0 && input === token;
 }
 
 export function saveAdminToken(token: string) {
