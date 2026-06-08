@@ -10,12 +10,9 @@
   # Public (non-secret) base URL the browser calls. Set here so a deploy always
   # has it; override per-context in the Netlify UI if you point at staging/prod.
   NEXT_PUBLIC_API_URL = "https://bwgwcrstym.us-east-1.awsapprunner.com"
-  # Admin (/admin) MVP gate password — PLACEHOLDER so the var exists at build
-  # time and Next can inline it. NOT secret (NEXT_PUBLIC_* ships in the client
-  # bundle). NOTE: netlify.toml build env takes precedence over Netlify-UI vars
-  # of the same name, so set the REAL admin token by editing THIS value (it must
-  # be an admin JWT the middleware accepts), not in the UI.
-  NEXT_PUBLIC_ADMIN_TOKEN = "changeme-placeholder"
+  # NEXT_PUBLIC_ADMIN_TOKEN is intentionally NOT set here — it's configured in
+  # the Netlify UI only (must be an admin JWT the middleware accepts). It is
+  # still inlined into the client bundle at build time, so it is not secret.
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
