@@ -10,9 +10,8 @@
   # Public (non-secret) base URL the browser calls. Set here so a deploy always
   # has it; override per-context in the Netlify UI if you point at staging/prod.
   NEXT_PUBLIC_API_URL = "https://bwgwcrstym.us-east-1.awsapprunner.com"
-  # NEXT_PUBLIC_ADMIN_TOKEN is intentionally NOT set here — it's configured in
-  # the Netlify UI only (must be an admin JWT the middleware accepts). It is
-  # still inlined into the client bundle at build time, so it is not secret.
+  # No admin token here: /admin has no build-time secret — ops users paste
+  # their admin JWT at login and the middleware validates it.
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

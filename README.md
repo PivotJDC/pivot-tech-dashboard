@@ -22,17 +22,18 @@ single client for every middleware call.
 
 | Route                    | Purpose                                                        |
 | ------------------------ | ------------------------------------------------------------- |
-| `/admin`                 | Password gate (`NEXT_PUBLIC_ADMIN_TOKEN`)                     |
+| `/admin`                 | Login — paste an admin JWT (validated by the middleware)       |
 | `/admin/dashboard`       | Metrics: active accounts, DIDs assigned, pending ports, revenue (`GET /admin/metrics`) |
 | `/admin/accounts`        | Filterable, paginated account list (`GET /admin/accounts`)    |
 | `/admin/accounts/[id]`   | Account detail; force status, reissue provisioning token + QR |
 | `/admin/dids`            | DID inventory grouped by market (`GET /admin/dids`)           |
 | `/admin/ports`           | Port requests, status filter (`GET /admin/ports`)            |
 
-Admin calls send `NEXT_PUBLIC_ADMIN_TOKEN` as `Authorization: Bearer`. **MVP
-only** — that token is inlined into the client bundle (not secret) and must be a
-credential the middleware's `adminAuth` accepts. Replace with real auth before
-exposing `/admin`.
+There is no frontend auth gate: the ops user pastes their admin JWT at `/admin`,
+it is stored in `sessionStorage` and sent as `Authorization: Bearer` on every
+admin call. The middleware validates it; a 401/403 clears the token and returns
+to the login. **MVP** — a bearer credential in `sessionStorage`; move to an
+httpOnly cookie / real session before wider exposure.
 
 ## Local development
 

@@ -7,16 +7,11 @@ import { Lock, Signal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  getAdminToken,
-  getConfiguredToken,
-  saveAdminToken,
-  verifyAdminPassword,
-} from "@/lib/admin-auth";
+import { getAdminToken, saveAdminToken } from "@/lib/admin-auth";
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const [password, setPassword] = useState("");
+  const [token, setToken] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(true);
 
@@ -29,16 +24,16 @@ export default function AdminLoginPage() {
     }
   }, [router]);
 
+  // No frontend comparison: store whatever is entered and let the middleware
+  // validate it. An invalid token round-trips back here via useAdminFetch's
+  // 401/403 handling.
   function submit() {
-    if (!getConfiguredToken()) {
-      setError("Admin access is not configured (NEXT_PUBLIC_ADMIN_TOKEN unset).");
+    const value = token.trim();
+    if (!value) {
+      setError("Enter your admin token.");
       return;
     }
-    if (!verifyAdminPassword(password)) {
-      setError("Incorrect password.");
-      return;
-    }
-    saveAdminToken(password);
+    saveAdminToken(value);
     router.replace("/admin/dashboard");
   }
 
@@ -57,19 +52,22 @@ export default function AdminLoginPage() {
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="password" className="text-slate-700">
-              Password
+            <Label htmlFor="token" className="text-slate-700">
+              Admin token
             </Label>
             <Input
-              id="password"
+              id="token"
               type="password"
               autoComplete="off"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Paste your admin JWT"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && submit()}
               autoFocus
             />
+            <p className="text-xs text-slate-500">
+              Your token is validated by the API, not stored on any server.
+            </p>
           </div>
 
           {error && (
