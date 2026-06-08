@@ -1,0 +1,15 @@
+# Netlify deployment config for the Next.js 14 App Router dashboard.
+# The Next.js runtime plugin handles the App Router build output, SSR/edge
+# functions, and routing — no manual `publish` dir needed.
+
+[build]
+  command = "npm run build"
+
+[build.environment]
+  NODE_VERSION = "20"
+  # Public (non-secret) base URL the browser calls. Set here so a deploy always
+  # has it; override per-context in the Netlify UI if you point at staging/prod.
+  NEXT_PUBLIC_API_URL = "https://bwgwcrstym.us-east-1.awsapprunner.com"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"

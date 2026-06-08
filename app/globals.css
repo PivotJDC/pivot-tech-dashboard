@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Beacon brand — warm, amber-forward palette. */
+    --background: 40 33% 98%;
+    --foreground: 28 18% 14%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 28 18% 14%;
+
+    --primary: 32 95% 44%;
+    --primary-foreground: 40 60% 99%;
+
+    --secondary: 36 40% 94%;
+    --secondary-foreground: 28 30% 20%;
+
+    --muted: 36 30% 95%;
+    --muted-foreground: 30 10% 42%;
+
+    --accent: 40 96% 90%;
+    --accent-foreground: 28 40% 18%;
+
+    --destructive: 0 72% 48%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 34 24% 88%;
+    --input: 34 24% 86%;
+    --ring: 32 95% 44%;
+
+    --radius: 0.75rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "ss01", "cv01";
+  }
+}
