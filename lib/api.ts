@@ -99,9 +99,11 @@ export interface Account {
 }
 
 export interface AvailableNumber {
-  number: string;
-  region?: string;
-  city?: string;
+  /** E.164, e.g. +12085550100 — the value to submit when reserving. */
+  e164: string;
+  /** Display form from the middleware, e.g. "(208) 555-0100". */
+  formatted: string;
+  area_code: string;
 }
 
 export interface PortDetails {
@@ -146,9 +148,9 @@ export function createAccount(input: CreateAccountInput): Promise<Account> {
 export function getAvailableNumbers(
   areacode: string,
 ): Promise<AvailableNumber[]> {
-  return request<{ data?: AvailableNumber[] } | AvailableNumber[]>(
+  return request<{ numbers?: AvailableNumber[] }>(
     `/v1/numbers/available?areacode=${encodeURIComponent(areacode)}`,
-  ).then((res) => (Array.isArray(res) ? res : (res.data ?? [])));
+  ).then((res) => res.numbers ?? []);
 }
 
 /** GET /v1/accounts/:id/status — lightweight status poll. */

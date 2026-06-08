@@ -162,12 +162,12 @@ export default function ChooseNumberPage() {
                   </p>
                   <div className="grid max-h-[22rem] grid-cols-2 gap-2 overflow-y-auto rounded-lg border bg-muted/30 p-2 sm:grid-cols-3">
                     {numbers.map((n) => {
-                      const active = selected === n.number;
+                      const active = selected === n.e164;
                       return (
                         <button
-                          key={n.number}
+                          key={n.e164}
                           type="button"
-                          onClick={() => setSelected(n.number)}
+                          onClick={() => setSelected(n.e164)}
                           className={cn(
                             "rounded-md border-2 bg-card px-3 py-3 text-center text-sm font-medium tabular-nums transition-colors",
                             active
@@ -175,7 +175,7 @@ export default function ChooseNumberPage() {
                               : "border-transparent hover:border-border",
                           )}
                         >
-                          {formatNumber(n.number)}
+                          {n.formatted}
                         </button>
                       );
                     })}
