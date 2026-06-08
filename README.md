@@ -18,6 +18,22 @@ single client for every middleware call.
 | `/onboarding`            | eSIM (emailed) + app-download QR + Acrobits provisioning QR + steps |
 | `/status`                | Activation / port status, polled every 10s (`/v1/accounts/:id/status`) |
 
+### Admin (internal ops tool, dark theme)
+
+| Route                    | Purpose                                                        |
+| ------------------------ | ------------------------------------------------------------- |
+| `/admin`                 | Password gate (`NEXT_PUBLIC_ADMIN_TOKEN`)                     |
+| `/admin/dashboard`       | Metrics: active accounts, DIDs assigned, pending ports, revenue (`GET /admin/metrics`) |
+| `/admin/accounts`        | Filterable, paginated account list (`GET /admin/accounts`)    |
+| `/admin/accounts/[id]`   | Account detail; force status, reissue provisioning token + QR |
+| `/admin/dids`            | DID inventory grouped by market (`GET /admin/dids`)           |
+| `/admin/ports`           | Port requests, status filter (`GET /admin/ports`)            |
+
+Admin calls send `NEXT_PUBLIC_ADMIN_TOKEN` as `Authorization: Bearer`. **MVP
+only** — that token is inlined into the client bundle (not secret) and must be a
+credential the middleware's `adminAuth` accepts. Replace with real auth before
+exposing `/admin`.
+
 ## Local development
 
 ```bash
