@@ -13,9 +13,9 @@ single client for every middleware call.
 | Route                    | Purpose                                                        |
 | ------------------------ | ------------------------------------------------------------- |
 | `/`                      | Landing — plan pitch + sign-up CTA                            |
-| `/signup`                | Two-step form: email → new number / port (`POST /v1/accounts`)|
+| `/signup`                | Two-step form: plan + email → new number / port (`POST /v1/accounts`)|
 | `/signup/choose-number`  | Area-code search → pick a DID (`GET /v1/numbers/available`)    |
-| `/onboarding`            | eSIM QR (BICS placeholder) + Acrobits provisioning QR + steps |
+| `/onboarding`            | eSIM (emailed) + app-download QR + Acrobits provisioning QR + steps |
 | `/status`                | Activation / port status, polled every 10s (`/v1/accounts/:id/status`) |
 
 ## Local development
@@ -39,4 +39,7 @@ prod) in the Netlify UI.
   — no server session.
 - The port-in path creates the account + port intent; full port details
   (carrier, PIN, billing zip) are Phase 2 in the middleware.
-- The eSIM QR is a placeholder pending the BICS provisioning integration.
+- The eSIM QR is delivered to the customer by email; the eSIM provider
+  integration is pending. The app-download QR is a placeholder linking to the
+  App Store until the branded store listings ship.
+- Plans are data-driven (`lib/plans.ts`) — adding a plan is a one-line change.

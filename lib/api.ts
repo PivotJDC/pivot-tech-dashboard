@@ -117,6 +117,8 @@ export interface PortDetails {
 export interface CreateAccountInput {
   email: string;
   market: string;
+  /** Plan slug (see lib/plans.ts); the middleware defaults to unlimited_25. */
+  plan: string;
   service: ServiceChoice;
   /** Present when service === "new" — the number the customer selected. */
   phone_e164?: string;

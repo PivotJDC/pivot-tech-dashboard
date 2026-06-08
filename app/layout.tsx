@@ -18,7 +18,7 @@ const fraunces = Fraunces({
 export const metadata: Metadata = {
   title: "Pivot-Tech — $25/mo Unlimited",
   description:
-    "Unlimited talk, text & data for $25/month. Powered by BICS multi-IMSI eSIM technology.",
+    "Unlimited talk, text & data for $25/month. Powered by universal eSIM technology — works on any unlocked device.",
 };
 
 export const viewport: Viewport = {

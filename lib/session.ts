@@ -17,6 +17,8 @@ const ACCOUNT_KEY = "pivot.account";
 export interface SignupDraft {
   email: string;
   service: ServiceChoice;
+  /** Selected plan id (lib/plans.ts). */
+  plan: string;
 }
 
 function read<T>(key: string): T | null {

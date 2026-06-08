@@ -37,7 +37,7 @@ export default function LandingPage() {
       <section className="container flex flex-col items-center pb-20 pt-10 text-center sm:pt-16">
         <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-accent px-4 py-1.5 text-sm font-medium text-accent-foreground">
           <Signal className="h-4 w-4" />
-          Powered by BICS multi-IMSI eSIM technology
+          Powered by universal eSIM technology — works on any unlocked device
         </span>
 
         <h1 className="mt-8 max-w-3xl font-display text-5xl font-semibold leading-[1.05] tracking-tight sm:text-6xl">

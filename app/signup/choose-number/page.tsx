@@ -79,6 +79,7 @@ export default function ChooseNumberPage() {
       const account = await createAccount({
         email: draft.email,
         market: marketForAreaCode(areacode),
+        plan: draft.plan,
         service: "new",
         phone_e164: selected,
       });

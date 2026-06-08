@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Loader2, Phone, Repeat } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Loader2, Phone, Repeat } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { createAccount, ApiError, type ServiceChoice } from "@/lib/api";
 import { saveAccount, saveDraft } from "@/lib/session";
 import { areaCodeFromNumber, marketForAreaCode } from "@/lib/markets";
+import { PLANS, DEFAULT_PLAN, type Plan } from "@/lib/plans";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -27,12 +28,14 @@ export default function SignupPage() {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2>(1);
   const [email, setEmail] = useState("");
+  const [plan, setPlan] = useState(DEFAULT_PLAN.id);
   const [service, setService] = useState<ServiceChoice>("new");
   const [currentNumber, setCurrentNumber] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const emailValid = EMAIL_RE.test(email);
+  const selectedPlan = PLANS.find((p) => p.id === plan) ?? DEFAULT_PLAN;
 
   function goToStep2() {
     if (!emailValid) {
@@ -49,7 +52,7 @@ export default function SignupPage() {
     // New number: we can't create the account until the customer picks a
     // specific number, so defer the POST to /signup/choose-number.
     if (service === "new") {
-      saveDraft({ email, service });
+      saveDraft({ email, service, plan });
       router.push("/signup/choose-number");
       return;
     }
@@ -69,6 +72,7 @@ export default function SignupPage() {
       const account = await createAccount({
         email,
         market: marketForAreaCode(areacode),
+        plan,
         service: "port",
         port: {
           number_e164: currentNumber,
@@ -109,30 +113,47 @@ export default function SignupPage() {
           </CardTitle>
           <CardDescription>
             {step === 1
-              ? "Unlimited talk, text & data for $25/month."
+              ? `${selectedPlan.description} for $${selectedPlan.price}/month.`
               : "Start fresh with a new number, or bring your current one."}
           </CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-5">
           {step === 1 && (
-            <div className="space-y-2">
-              <Label htmlFor="email">Email address</Label>
-              <Input
-                id="email"
-                type="email"
-                inputMode="email"
-                autoComplete="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && goToStep2()}
-                autoFocus
-              />
-              <p className="text-xs text-muted-foreground">
-                We’ll send your account details and receipts here.
-              </p>
-            </div>
+            <>
+              <div className="space-y-2">
+                <Label>Your plan</Label>
+                {/* Data-driven from lib/plans.ts — add a plan there, no UI change. */}
+                <div className="space-y-2">
+                  {PLANS.map((p) => (
+                    <PlanOption
+                      key={p.id}
+                      plan={p}
+                      selected={p.id === plan}
+                      onSelect={() => setPlan(p.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="email">Email address</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && goToStep2()}
+                  autoFocus
+                />
+                <p className="text-xs text-muted-foreground">
+                  We’ll send your account details and receipts here.
+                </p>
+              </div>
+            </>
           )}
 
           {step === 2 && (
@@ -207,6 +228,44 @@ export default function SignupPage() {
         </CardContent>
       </Card>
     </main>
+  );
+}
+
+function PlanOption({
+  plan,
+  selected,
+  onSelect,
+}: {
+  plan: Plan;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={selected}
+      className={cn(
+        "flex w-full items-center justify-between gap-3 rounded-lg border-2 p-4 text-left transition-colors",
+        selected ? "border-primary bg-accent/40" : "border-border hover:bg-muted",
+      )}
+    >
+      <span className="space-y-0.5">
+        <span className="flex items-center gap-2 font-semibold leading-none">
+          {plan.label}
+          {selected && <Check className="h-4 w-4 text-primary" />}
+        </span>
+        <span className="block text-sm text-muted-foreground">
+          {plan.description}
+        </span>
+      </span>
+      <span className="shrink-0 text-right">
+        <span className="font-display text-2xl font-semibold tabular-nums">
+          ${plan.price}
+        </span>
+        <span className="block text-xs text-muted-foreground">/month</span>
+      </span>
+    </button>
   );
 }
 

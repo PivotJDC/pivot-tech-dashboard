@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Smartphone } from "lucide-react";
+import { ArrowRight, Mail } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,6 +12,12 @@ import { getAccount } from "@/lib/session";
 import type { Account } from "@/lib/api";
 
 const STEPS = ["Install eSIM", "Download App", "Scan QR", "Done"];
+
+// Acrobits Cloud Softphone (white-labeled as Pivot Mobility) on the App Store.
+// Static placeholder until the branded store listings ship.
+const APP_STORE_URL = "https://apps.apple.com/us/app/cloud-softphone/id313362813";
+// Placeholder pending the published Pivot Mobility Android listing.
+const PLAY_STORE_URL = "https://play.google.com/store/search?q=cloud%20softphone&c=apps";
 
 /** +12085550100 → (208) 555-0100. */
 function formatNumber(e164?: string): string {
@@ -66,19 +72,64 @@ export default function OnboardingPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 sm:grid-cols-2">
-        {/* Step 1 — eSIM (BICS placeholder). */}
-        <QrCard
+      <div className="space-y-6">
+        {/* Step 1 — eSIM delivered by email (no QR shown; the real one is
+            emailed once eSIM provisioning lands). */}
+        <StepCard
           step="1. Install your eSIM"
-          caption="Scan in Settings → Cellular → Add eSIM."
+          caption="Check your inbox, then add it in Settings → Cellular → Add eSIM."
         >
-          <PlaceholderQr label="eSIM QR" sublabel="Provisioned by BICS" />
-        </QrCard>
+          <div className="flex h-44 w-44 flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed bg-muted/40 px-5 text-center">
+            <Mail className="h-9 w-9 text-primary" />
+            <span className="text-sm font-medium leading-snug">
+              Your eSIM QR code will be delivered to your email
+            </span>
+          </div>
+        </StepCard>
 
-        {/* Step 3 — Acrobits dialer provisioning. */}
-        <QrCard
+        {/* Step 2 — download the dialer app. Placeholder QR links to the
+            App Store; Google Play link is a placeholder for now. */}
+        <StepCard
+          step="2. Download the Pivot Mobility app"
+          caption={
+            <span className="flex items-center justify-center gap-3">
+              <a
+                href={APP_STORE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-primary underline-offset-4 hover:underline"
+              >
+                iOS — App Store
+              </a>
+              <span aria-hidden className="text-muted-foreground">
+                ·
+              </span>
+              <a
+                href={PLAY_STORE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-muted-foreground underline-offset-4 hover:underline"
+              >
+                Android — Google Play
+              </a>
+            </span>
+          }
+        >
+          <a
+            href={APP_STORE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Download on the App Store (iOS)"
+            className="rounded-lg outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            <PlaceholderQr label="iOS" sublabel="Scan or tap — App Store" />
+          </a>
+        </StepCard>
+
+        {/* Step 3 — Acrobits dialer provisioning QR (real, works as-is). */}
+        <StepCard
           step="3. Scan to activate your dialer"
-          caption="Open the Pivot-Tech app, then scan this code."
+          caption="Open the Pivot Mobility app, then scan this code."
         >
           {acrobitsQr ? (
             // qr_code_url is a self-contained data: URL from the middleware.
@@ -91,22 +142,8 @@ export default function OnboardingPage() {
           ) : (
             <PlaceholderQr label="QR pending" sublabel="Refresh in a moment" />
           )}
-        </QrCard>
+        </StepCard>
       </div>
-
-      {/* Step 2 reminder. */}
-      <Card className="mt-6">
-        <CardContent className="flex items-center gap-4 py-5">
-          <Smartphone className="h-6 w-6 shrink-0 text-primary" />
-          <div className="text-sm">
-            <p className="font-semibold">2. Download the Pivot-Tech app</p>
-            <p className="text-muted-foreground">
-              Get it from the App Store or Google Play, then come back to scan the
-              code above.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
 
       <Button asChild size="lg" className="mt-8 w-full">
         <Link href="/status">
@@ -118,13 +155,13 @@ export default function OnboardingPage() {
   );
 }
 
-function QrCard({
+function StepCard({
   step,
   caption,
   children,
 }: {
   step: string;
-  caption: string;
+  caption: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -134,7 +171,7 @@ function QrCard({
         <div className="flex h-44 w-44 items-center justify-center">
           {children}
         </div>
-        <p className="text-sm text-muted-foreground">{caption}</p>
+        <div className="text-sm text-muted-foreground">{caption}</div>
       </CardContent>
     </Card>
   );
@@ -149,15 +186,9 @@ function PlaceholderQr({
 }) {
   return (
     <div className="flex h-44 w-44 flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed bg-muted/40 text-center">
-      <span
-        aria-hidden
-        className="grid grid-cols-4 grid-rows-4 gap-1 opacity-40"
-      >
+      <span aria-hidden className="grid grid-cols-4 grid-rows-4 gap-1 opacity-40">
         {Array.from({ length: 16 }).map((_, i) => (
-          <span
-            key={i}
-            className={cellShade(i)}
-          />
+          <span key={i} className={cellShade(i)} />
         ))}
       </span>
       <span className="mt-2 text-sm font-semibold">{label}</span>
