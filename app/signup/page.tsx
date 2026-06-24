@@ -28,7 +28,16 @@ export default function SignupPage() {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2>(1);
   const [email, setEmail] = useState("");
-  const [plan, setPlan] = useState(DEFAULT_PLAN.id);
+  // Honor a ?plan= deep link from the landing page pricing cards, falling back
+  // to the default. Read lazily on the client to avoid the Suspense boundary
+  // that useSearchParams() would require.
+  const [plan, setPlan] = useState(() => {
+    if (typeof window !== "undefined") {
+      const requested = new URLSearchParams(window.location.search).get("plan");
+      if (requested && PLANS.some((p) => p.id === requested)) return requested;
+    }
+    return DEFAULT_PLAN.id;
+  });
   const [service, setService] = useState<ServiceChoice>("new");
   const [currentNumber, setCurrentNumber] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -252,7 +261,7 @@ function PlanOption({
     >
       <span className="space-y-0.5">
         <span className="flex items-center gap-2 font-semibold leading-none">
-          {plan.label}
+          {plan.name}
           {selected && <Check className="h-4 w-4 text-primary" />}
         </span>
         <span className="block text-sm text-muted-foreground">
