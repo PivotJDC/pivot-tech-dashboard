@@ -21,7 +21,7 @@ import {
   getAvailableNumbers,
   type AvailableNumber,
 } from "@/lib/api";
-import { getDraft, saveAccount } from "@/lib/session";
+import { getDraft, saveAccount, setAddLine } from "@/lib/session";
 import { marketForAreaCode } from "@/lib/markets";
 
 /** Format +12085550100 → (208) 555-0100 for display. */
@@ -40,6 +40,8 @@ export default function ChooseNumberPage() {
   const [searching, setSearching] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The API reported this email already has an account — offer "add a line".
+  const [duplicateEmail, setDuplicateEmail] = useState(false);
 
   // Guard: this step requires an in-flight signup draft (email + choice).
   useEffect(() => {
@@ -70,10 +72,11 @@ export default function ChooseNumberPage() {
     }
   }
 
-  async function confirm() {
+  async function confirm(addLine = false) {
     const draft = getDraft();
     if (!draft || !selected) return;
     setError(null);
+    setDuplicateEmail(false);
     setSubmitting(true);
     try {
       const account = await createAccount({
@@ -86,13 +89,46 @@ export default function ChooseNumberPage() {
       saveAccount(account);
       router.push("/onboarding");
     } catch (err) {
+      setSubmitting(false);
+      // Duplicate email → offer to add a line instead of dead-ending. Only on
+      // the first attempt; if it recurs after "Add a Line", the middleware
+      // doesn't yet support linking, so fall through to a plain message.
+      const isDuplicateEmail = err instanceof ApiError
+        && err.code === "VALIDATION_ERROR"
+        && err.field === "email";
+      if (isDuplicateEmail && !addLine) {
+        setDuplicateEmail(true);
+        return;
+      }
+      if (isDuplicateEmail && addLine) {
+        setError(
+          "Thanks! Adding a line to an existing account isn't fully automated "
+          + "yet — our team will reach out to finish setting it up.",
+        );
+        return;
+      }
       setError(
         err instanceof ApiError
           ? err.message
           : "Couldn't reserve that number. Please try another.",
       );
-      setSubmitting(false);
     }
+  }
+
+  // "Add a Line": remember the intent (the middleware will link a child account
+  // in a later update) and retry reserving the number.
+  function handleAddLine() {
+    const draft = getDraft();
+    if (draft) setAddLine(draft.email);
+    setDuplicateEmail(false);
+    confirm(true);
+  }
+
+  // "Use Different Email": return to the start of signup to re-enter the email.
+  function handleUseDifferentEmail() {
+    setDuplicateEmail(false);
+    setError(null);
+    router.push("/signup");
   }
 
   return (
@@ -187,16 +223,43 @@ export default function ChooseNumberPage() {
             </div>
           )}
 
-          <Button
-            className="w-full"
-            disabled={!selected || submitting}
-            onClick={confirm}
-          >
-            {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-            {selected
-              ? `Continue with ${formatNumber(selected)}`
-              : "Select a number to continue"}
-          </Button>
+          {duplicateEmail ? (
+            <div className="space-y-3 rounded-lg border-2 border-primary/30 bg-accent/40 p-4">
+              <p className="text-sm font-medium">
+                This email already has a MobilityNet account. Want to add another
+                line?
+              </p>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button
+                  className="flex-1"
+                  onClick={handleAddLine}
+                  disabled={submitting}
+                >
+                  {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Add a Line
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={handleUseDifferentEmail}
+                  disabled={submitting}
+                >
+                  Use Different Email
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button
+              className="w-full"
+              disabled={!selected || submitting}
+              onClick={() => confirm()}
+            >
+              {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+              {selected
+                ? `Continue with ${formatNumber(selected)}`
+                : "Select a number to continue"}
+            </Button>
+          )}
         </CardContent>
       </Card>
     </main>
