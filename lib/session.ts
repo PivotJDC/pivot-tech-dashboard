@@ -37,3 +37,20 @@ export const getDraft = () => read<SignupDraft>(DRAFT_KEY);
 
 export const saveAccount = (a: Account) => write(ACCOUNT_KEY, a);
 export const getAccount = () => read<Account>(ACCOUNT_KEY);
+
+// "Add a line" intent: the customer hit a duplicate-email at signup and chose to
+// add another line to their existing account. Stored as a plain "true" flag plus
+// the email, for the (future) middleware child-account linking step to consume.
+const ADD_LINE_KEY = "add_line";
+const ADD_LINE_EMAIL_KEY = "add_line_email";
+
+export function setAddLine(email: string) {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.setItem(ADD_LINE_KEY, "true");
+  window.sessionStorage.setItem(ADD_LINE_EMAIL_KEY, email);
+}
+
+export function getAddLine(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.sessionStorage.getItem(ADD_LINE_KEY) === "true";
+}

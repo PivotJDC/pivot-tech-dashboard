@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { createAccount, ApiError, type ServiceChoice } from "@/lib/api";
-import { saveAccount, saveDraft } from "@/lib/session";
+import { saveAccount, saveDraft, setAddLine } from "@/lib/session";
 import { areaCodeFromNumber, marketForAreaCode } from "@/lib/markets";
 import { PLANS, DEFAULT_PLAN, type Plan } from "@/lib/plans";
 
@@ -37,6 +37,8 @@ export default function SignupPage() {
   const [currentNumber, setCurrentNumber] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // The API reported this email already has an account — offer "add a line".
+  const [duplicateEmail, setDuplicateEmail] = useState(false);
 
   // Honor a ?plan= deep link from the landing-page pricing cards. Read in an
   // effect (after mount) rather than in the useState initializer: /signup is
@@ -62,8 +64,9 @@ export default function SignupPage() {
     setStep(2);
   }
 
-  async function handleSubmit() {
+  async function handleSubmit(addLine = false) {
     setError(null);
+    setDuplicateEmail(false);
 
     // New number: we can't create the account until the customer picks a
     // specific number, so defer the POST to /signup/choose-number.
@@ -101,13 +104,46 @@ export default function SignupPage() {
       saveAccount(account);
       router.push("/onboarding");
     } catch (err) {
+      setSubmitting(false);
+      // Duplicate email → offer to add a line instead of dead-ending. Only on
+      // the first attempt; if it recurs after "Add a Line", the middleware
+      // doesn't yet support linking, so fall through to a plain message.
+      const isDuplicateEmail = err instanceof ApiError
+        && err.code === "VALIDATION_ERROR"
+        && err.field === "email";
+      if (isDuplicateEmail && !addLine) {
+        setDuplicateEmail(true);
+        return;
+      }
+      if (isDuplicateEmail && addLine) {
+        setError(
+          "Thanks! Adding a line to an existing account isn't fully automated "
+          + "yet — our team will reach out to finish setting it up.",
+        );
+        return;
+      }
       setError(
         err instanceof ApiError
           ? err.message
           : "Something went wrong creating your account. Please try again.",
       );
-      setSubmitting(false);
     }
+  }
+
+  // "Add a Line": remember the intent (the middleware will link a child account
+  // in a later update) and continue the signup flow.
+  function handleAddLine() {
+    setAddLine(email);
+    setDuplicateEmail(false);
+    handleSubmit(true);
+  }
+
+  // "Use Different Email": clear the field and return to email entry.
+  function handleUseDifferentEmail() {
+    setDuplicateEmail(false);
+    setError(null);
+    setEmail("");
+    setStep(1);
   }
 
   return (
@@ -129,7 +165,7 @@ export default function SignupPage() {
           </CardTitle>
           <CardDescription>
             {step === 1
-              ? `${selectedPlan.description} for $${selectedPlan.price}/month.`
+              ? `${selectedPlan.name} — ${selectedPlan.description} for $${selectedPlan.price}/month.`
               : "Start fresh with a new number, or bring your current one."}
           </CardDescription>
         </CardHeader>
@@ -137,23 +173,13 @@ export default function SignupPage() {
         <CardContent className="space-y-5">
           {step === 1 && (
             <>
-              <div className="space-y-2">
-                <Label>Your plan</Label>
-                {planLocked ? (
-                  // Plan chosen on the landing page — show it confirmed and let
-                  // the picker reopen if they want to change it.
-                  <div className="space-y-2">
-                    <PlanOption plan={selectedPlan} selected onSelect={() => {}} />
-                    <button
-                      type="button"
-                      onClick={() => setPlanLocked(false)}
-                      className="text-sm font-medium text-primary underline-offset-4 hover:underline"
-                    >
-                      Change plan
-                    </button>
-                  </div>
-                ) : (
-                  // Data-driven from lib/plans.ts — add a plan there, no UI change.
+              {/* When the plan arrived via ?plan= the customer already chose on
+                  the landing page — skip the picker and go straight to email.
+                  The chosen plan is shown in the card description above. */}
+              {!planLocked && (
+                <div className="space-y-2">
+                  <Label>Your plan</Label>
+                  {/* Data-driven from lib/plans.ts — add a plan there, no UI change. */}
                   <div className="space-y-2">
                     {PLANS.map((p) => (
                       <PlanOption
@@ -164,8 +190,8 @@ export default function SignupPage() {
                       />
                     ))}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="email">Email address</Label>
@@ -230,7 +256,32 @@ export default function SignupPage() {
             </p>
           )}
 
-          {step === 1 ? (
+          {duplicateEmail ? (
+            <div className="space-y-3 rounded-lg border-2 border-primary/30 bg-accent/40 p-4">
+              <p className="text-sm font-medium">
+                This email already has a MobilityNet account. Want to add another
+                line?
+              </p>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button
+                  className="flex-1"
+                  onClick={handleAddLine}
+                  disabled={submitting}
+                >
+                  {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Add a Line
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={handleUseDifferentEmail}
+                  disabled={submitting}
+                >
+                  Use Different Email
+                </Button>
+              </div>
+            </div>
+          ) : step === 1 ? (
             <Button className="w-full" onClick={goToStep2} disabled={!emailValid}>
               Continue
               <ArrowRight className="h-4 w-4" />
@@ -247,7 +298,7 @@ export default function SignupPage() {
               </Button>
               <Button
                 className="flex-[2]"
-                onClick={handleSubmit}
+                onClick={() => handleSubmit()}
                 disabled={submitting}
               >
                 {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
