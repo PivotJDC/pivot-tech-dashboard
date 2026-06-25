@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Check, Loader2, Phone, Repeat } from "lucide-react";
@@ -28,20 +28,27 @@ export default function SignupPage() {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2>(1);
   const [email, setEmail] = useState("");
-  // Honor a ?plan= deep link from the landing page pricing cards, falling back
-  // to the default. Read lazily on the client to avoid the Suspense boundary
-  // that useSearchParams() would require.
-  const [plan, setPlan] = useState(() => {
-    if (typeof window !== "undefined") {
-      const requested = new URLSearchParams(window.location.search).get("plan");
-      if (requested && PLANS.some((p) => p.id === requested)) return requested;
-    }
-    return DEFAULT_PLAN.id;
-  });
+  const [plan, setPlan] = useState(DEFAULT_PLAN.id);
+  // True once a valid plan arrives via ?plan= (landing-page pricing card). When
+  // set, the picker collapses to a confirmed summary so the user lands straight
+  // on email entry.
+  const [planLocked, setPlanLocked] = useState(false);
   const [service, setService] = useState<ServiceChoice>("new");
   const [currentNumber, setCurrentNumber] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Honor a ?plan= deep link from the landing-page pricing cards. Read in an
+  // effect (after mount) rather than in the useState initializer: /signup is
+  // statically prerendered, so reading window during render would hydrate with
+  // a value that mismatches the server HTML and the selection would be dropped.
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("plan");
+    if (requested && PLANS.some((p) => p.id === requested)) {
+      setPlan(requested);
+      setPlanLocked(true);
+    }
+  }, []);
 
   const emailValid = EMAIL_RE.test(email);
   const selectedPlan = PLANS.find((p) => p.id === plan) ?? DEFAULT_PLAN;
@@ -132,17 +139,32 @@ export default function SignupPage() {
             <>
               <div className="space-y-2">
                 <Label>Your plan</Label>
-                {/* Data-driven from lib/plans.ts — add a plan there, no UI change. */}
-                <div className="space-y-2">
-                  {PLANS.map((p) => (
-                    <PlanOption
-                      key={p.id}
-                      plan={p}
-                      selected={p.id === plan}
-                      onSelect={() => setPlan(p.id)}
-                    />
-                  ))}
-                </div>
+                {planLocked ? (
+                  // Plan chosen on the landing page — show it confirmed and let
+                  // the picker reopen if they want to change it.
+                  <div className="space-y-2">
+                    <PlanOption plan={selectedPlan} selected onSelect={() => {}} />
+                    <button
+                      type="button"
+                      onClick={() => setPlanLocked(false)}
+                      className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+                    >
+                      Change plan
+                    </button>
+                  </div>
+                ) : (
+                  // Data-driven from lib/plans.ts — add a plan there, no UI change.
+                  <div className="space-y-2">
+                    {PLANS.map((p) => (
+                      <PlanOption
+                        key={p.id}
+                        plan={p}
+                        selected={p.id === plan}
+                        onSelect={() => setPlan(p.id)}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
