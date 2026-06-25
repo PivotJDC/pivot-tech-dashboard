@@ -21,7 +21,14 @@ import {
   getAvailableNumbers,
   type AvailableNumber,
 } from "@/lib/api";
-import { getDraft, saveAccount, setAddLine } from "@/lib/session";
+import {
+  clearAddLine,
+  getAddLine,
+  getAddLineEmail,
+  getDraft,
+  saveAccount,
+  setAddLine,
+} from "@/lib/session";
 import { marketForAreaCode } from "@/lib/markets";
 
 /** Format +12085550100 → (208) 555-0100 for display. */
@@ -78,6 +85,9 @@ export default function ChooseNumberPage() {
     setError(null);
     setDuplicateEmail(false);
     setSubmitting(true);
+    // Add-a-line: send the primary's email so the middleware creates this as a
+    // child line. Honor either the explicit arg or a previously-stored flag.
+    const parentEmail = addLine || getAddLine() ? getAddLineEmail() : "";
     try {
       const account = await createAccount({
         email: draft.email,
@@ -85,7 +95,9 @@ export default function ChooseNumberPage() {
         plan: draft.plan,
         service: "new",
         phone_e164: selected,
+        ...(parentEmail ? { parent_email: parentEmail } : {}),
       });
+      clearAddLine();
       saveAccount(account);
       router.push("/onboarding");
     } catch (err) {

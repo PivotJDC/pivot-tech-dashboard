@@ -54,3 +54,16 @@ export function getAddLine(): boolean {
   if (typeof window === "undefined") return false;
   return window.sessionStorage.getItem(ADD_LINE_KEY) === "true";
 }
+
+/** The primary account's email stored by setAddLine (empty string if none). */
+export function getAddLineEmail(): string {
+  if (typeof window === "undefined") return "";
+  return window.sessionStorage.getItem(ADD_LINE_EMAIL_KEY) ?? "";
+}
+
+/** Clear the add-a-line flags once the child line has been created. */
+export function clearAddLine() {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.removeItem(ADD_LINE_KEY);
+  window.sessionStorage.removeItem(ADD_LINE_EMAIL_KEY);
+}

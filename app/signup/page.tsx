@@ -18,7 +18,14 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { createAccount, ApiError, type ServiceChoice } from "@/lib/api";
-import { saveAccount, saveDraft, setAddLine } from "@/lib/session";
+import {
+  clearAddLine,
+  getAddLine,
+  getAddLineEmail,
+  saveAccount,
+  saveDraft,
+  setAddLine,
+} from "@/lib/session";
 import { areaCodeFromNumber, marketForAreaCode } from "@/lib/markets";
 import { PLANS, DEFAULT_PLAN, type Plan } from "@/lib/plans";
 
@@ -87,6 +94,9 @@ export default function SignupPage() {
     }
 
     setSubmitting(true);
+    // Add-a-line: send the primary's email so the middleware ports this number
+    // in as a child line. Honor either the explicit arg or a stored flag.
+    const parentEmail = addLine || getAddLine() ? getAddLineEmail() : "";
     try {
       const account = await createAccount({
         email,
@@ -100,7 +110,9 @@ export default function SignupPage() {
           pin: "",
           billing_zip: "",
         },
+        ...(parentEmail ? { parent_email: parentEmail } : {}),
       });
+      clearAddLine();
       saveAccount(account);
       router.push("/onboarding");
     } catch (err) {

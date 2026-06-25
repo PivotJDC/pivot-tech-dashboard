@@ -137,6 +137,11 @@ export interface CreateAccountInput {
   phone_e164?: string;
   /** Present when service === "port". */
   port?: PortDetails;
+  /**
+   * Add-a-line: the existing primary account's email. When set, the middleware
+   * creates this as a child line under that primary instead of a new account.
+   */
+  parent_email?: string;
 }
 
 export interface AccountStatus {
