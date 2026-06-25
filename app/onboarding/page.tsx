@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Mail } from "lucide-react";
+import { ArrowRight, Info } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -46,6 +47,7 @@ export default function OnboardingPage() {
   if (!ready || !account) return null;
 
   const acrobitsQr = account.provisioning?.qr_code_url;
+  const esim = account.esim;
 
   return (
     <main className="container max-w-2xl py-10">
@@ -73,19 +75,48 @@ export default function OnboardingPage() {
       </Card>
 
       <div className="space-y-6">
-        {/* Step 1 — eSIM delivered by email (no QR shown; the real one is
-            emailed once eSIM provisioning lands). */}
-        <StepCard
-          step="1. Install your eSIM"
-          caption="Check your inbox, then add it in Settings → Cellular → Add eSIM."
-        >
-          <div className="flex h-44 w-44 flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed bg-muted/40 px-5 text-center">
-            <Mail className="h-9 w-9 text-primary" />
-            <span className="text-sm font-medium leading-snug">
-              Your eSIM QR code will be delivered to your email
-            </span>
-          </div>
-        </StepCard>
+        {/* Step 1 — eSIM install QR, rendered client-side from the LPA
+            activation code returned by the middleware. */}
+        <Card>
+          <CardContent className="flex flex-col items-center gap-4 py-6 text-center">
+            <div>
+              <p className="font-semibold">Step 1: Install eSIM</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Scan with your phone’s camera to install cellular data
+              </p>
+            </div>
+
+            {esim?.activationCode ? (
+              <>
+                <div className="rounded-lg border bg-white p-3">
+                  <QRCodeSVG
+                    value={esim.activationCode}
+                    size={168}
+                    aria-label="eSIM installation QR code"
+                  />
+                </div>
+                <div className="w-full max-w-sm space-y-2 text-left text-sm text-muted-foreground">
+                  <p>
+                    <span className="font-medium text-foreground">iPhone:</span>{" "}
+                    Settings → Cellular → Add eSIM → Scan QR
+                  </p>
+                  <p>
+                    <span className="font-medium text-foreground">Android:</span>{" "}
+                    Settings → Network → SIMs → Add eSIM → Scan QR
+                  </p>
+                </div>
+              </>
+            ) : (
+              <div className="flex w-full max-w-sm flex-col items-center gap-3 rounded-lg border border-dashed bg-muted/40 px-5 py-8 text-center">
+                <Info className="h-8 w-8 text-primary" />
+                <p className="text-sm font-medium leading-snug">
+                  eSIM provisioning is being processed. Check back shortly or
+                  contact support.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Step 2 — download the dialer app. Placeholder QR links to the
             App Store; Google Play link is a placeholder for now. */}

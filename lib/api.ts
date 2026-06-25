@@ -89,6 +89,15 @@ export interface ProvisioningLinks {
   expires_at?: string;
 }
 
+/** BICS eSIM details returned by POST /v1/accounts (null if provisioning failed). */
+export interface Esim {
+  iccid: string;
+  /** LPA activation string, e.g. "LPA:1$thales3.prod...$..." — the QR payload. */
+  activationCode: string;
+  smDpAddress: string;
+  endpointId: string;
+}
+
 export interface Account {
   id: string;
   email: string;
@@ -96,6 +105,10 @@ export interface Account {
   phone_e164?: string;
   market?: string;
   provisioning?: ProvisioningLinks;
+  /** Present on success; null when BICS provisioning failed (see esim_error). */
+  esim?: Esim | null;
+  /** Set when esim is null — a customer-facing reason. */
+  esim_error?: string;
 }
 
 export interface AvailableNumber {
