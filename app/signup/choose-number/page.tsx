@@ -123,14 +123,15 @@ export default function ChooseNumberPage() {
               <Input
                 id="areacode"
                 inputMode="numeric"
+                pattern="\d{3}"
                 maxLength={3}
-                placeholder="208"
+                placeholder="Enter area code (e.g., 208)"
                 value={areacode}
                 onChange={(e) =>
                   setAreacode(e.target.value.replace(/\D/g, "").slice(0, 3))
                 }
                 onKeyDown={(e) => e.key === "Enter" && search()}
-                className="max-w-[8rem]"
+                className="flex-1"
                 autoFocus
               />
               <Button onClick={search} disabled={searching || areacode.length !== 3}>
@@ -154,7 +155,7 @@ export default function ChooseNumberPage() {
             <div className="space-y-3">
               {numbers.length === 0 ? (
                 <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-                  No numbers available in {areacode}. Try a nearby area code.
+                  No numbers available in this area code.
                 </p>
               ) : (
                 <>
