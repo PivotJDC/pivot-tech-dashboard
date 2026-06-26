@@ -129,7 +129,11 @@ export interface PortDetails {
 
 export interface CreateAccountInput {
   email: string;
-  market: string;
+  /**
+   * Launched-market slug, or omitted for any other US area code — the
+   * middleware defaults market to "direct" and searches the number's area code.
+   */
+  market?: string;
   /** Plan slug (see lib/plans.ts); the middleware defaults to unlimited_25. */
   plan: string;
   service: ServiceChoice;

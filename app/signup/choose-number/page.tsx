@@ -29,7 +29,7 @@ import {
   saveAccount,
   setAddLine,
 } from "@/lib/session";
-import { marketForAreaCode } from "@/lib/markets";
+import { marketForAreaCode, SUGGESTED_AREA_CODES } from "@/lib/markets";
 
 /** Format +12085550100 → (208) 555-0100 for display. */
 function formatNumber(e164: string): string {
@@ -167,6 +167,24 @@ export default function ChooseNumberPage() {
         <CardContent className="space-y-5">
           <div className="space-y-2">
             <Label htmlFor="areacode">Area code</Label>
+            {/* Guided suggestions — tap to fill. Any US area code also works. */}
+            <div className="flex flex-wrap gap-2">
+              {SUGGESTED_AREA_CODES.map((s) => (
+                <button
+                  key={s.code}
+                  type="button"
+                  onClick={() => setAreacode(s.code)}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                    areacode === s.code
+                      ? "border-primary bg-accent/40 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary hover:text-primary",
+                  )}
+                >
+                  {s.code} ({s.label})
+                </button>
+              ))}
+            </div>
             <div className="flex gap-3">
               <Input
                 id="areacode"
@@ -203,7 +221,7 @@ export default function ChooseNumberPage() {
             <div className="space-y-3">
               {numbers.length === 0 ? (
                 <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-                  No numbers available in this area code.
+                  No numbers available in this area code. Try another.
                 </p>
               ) : (
                 <>

@@ -67,3 +67,23 @@ export function clearAddLine() {
   window.sessionStorage.removeItem(ADD_LINE_KEY);
   window.sessionStorage.removeItem(ADD_LINE_EMAIL_KEY);
 }
+
+// Family-plan mode: set when a customer starts a family plan (/signup?family=true).
+// Persists through onboarding so we can offer "Add a family member?" after each
+// line completes, looping until they choose "Done for Now".
+const FAMILY_KEY = "family";
+
+export function setFamilyMode() {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.setItem(FAMILY_KEY, "true");
+}
+
+export function getFamilyMode(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.sessionStorage.getItem(FAMILY_KEY) === "true";
+}
+
+export function clearFamilyMode() {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.removeItem(FAMILY_KEY);
+}

@@ -25,6 +25,7 @@ import {
   saveAccount,
   saveDraft,
   setAddLine,
+  setFamilyMode,
 } from "@/lib/session";
 import { areaCodeFromNumber, marketForAreaCode } from "@/lib/markets";
 import { PLANS, DEFAULT_PLAN, type Plan } from "@/lib/plans";
@@ -46,16 +47,27 @@ export default function SignupPage() {
   const [submitting, setSubmitting] = useState(false);
   // The API reported this email already has an account — offer "add a line".
   const [duplicateEmail, setDuplicateEmail] = useState(false);
+  // True when adding a family member: the email is the primary's (locked) and
+  // this signup creates a child line.
+  const [addingLine, setAddingLine] = useState(false);
 
-  // Honor a ?plan= deep link from the landing-page pricing cards. Read in an
-  // effect (after mount) rather than in the useState initializer: /signup is
-  // statically prerendered, so reading window during render would hydrate with
-  // a value that mismatches the server HTML and the selection would be dropped.
+  // Read query/session state after mount (not in the useState initializer):
+  // /signup is statically prerendered, so reading window during render would
+  // hydrate with a value that mismatches the server HTML.
   useEffect(() => {
-    const requested = new URLSearchParams(window.location.search).get("plan");
+    const search = new URLSearchParams(window.location.search);
+    const requested = search.get("plan");
     if (requested && PLANS.some((p) => p.id === requested)) {
       setPlan(requested);
       setPlanLocked(true);
+    }
+    // Starting a family plan — remember it so onboarding offers "add a member".
+    if (search.get("family") === "true") setFamilyMode();
+    // Adding a family member (or duplicate-email add-line): the email is the
+    // primary account's — prefill and lock it; each member still picks a plan.
+    if (getAddLine()) {
+      setAddingLine(true);
+      setEmail(getAddLineEmail());
     }
   }, []);
 
@@ -205,6 +217,14 @@ export default function SignupPage() {
                 </div>
               )}
 
+              {addingLine && (
+                <div className="rounded-lg border-2 border-primary/30 bg-accent/40 p-3 text-sm">
+                  <span className="font-medium">Adding a family line</span> under{" "}
+                  <span className="font-medium">{email}</span>. Pick this member’s
+                  plan and number below.
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="email">Email address</Label>
                 <Input
@@ -216,10 +236,13 @@ export default function SignupPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && goToStep2()}
-                  autoFocus
+                  disabled={addingLine}
+                  autoFocus={!addingLine}
                 />
                 <p className="text-xs text-muted-foreground">
-                  We’ll send your account details and receipts here.
+                  {addingLine
+                    ? "Family lines share the primary account’s email."
+                    : "We’ll send your account details and receipts here."}
                 </p>
               </div>
             </>

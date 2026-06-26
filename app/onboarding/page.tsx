@@ -9,7 +9,13 @@ import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StepIndicator } from "@/components/step-indicator";
-import { getAccount } from "@/lib/session";
+import {
+  clearAddLine,
+  clearFamilyMode,
+  getAccount,
+  getFamilyMode,
+  setAddLine,
+} from "@/lib/session";
 import type { Account } from "@/lib/api";
 
 const STEPS = ["Install eSIM", "Download App", "Scan QR", "Done"];
@@ -33,6 +39,8 @@ export default function OnboardingPage() {
   const router = useRouter();
   const [account, setAccount] = useState<Account | null>(null);
   const [ready, setReady] = useState(false);
+  const [isFamily, setIsFamily] = useState(false);
+  const [doneAdding, setDoneAdding] = useState(false);
 
   useEffect(() => {
     const a = getAccount();
@@ -41,8 +49,23 @@ export default function OnboardingPage() {
       return;
     }
     setAccount(a);
+    setIsFamily(getFamilyMode());
     setReady(true);
   }, [router]);
+
+  // Add another family line: reuse the add-a-line flow (parent_email = the
+  // primary's email) and loop back through plan + number selection.
+  function addAnotherLine() {
+    const primaryEmail = account?.email;
+    if (primaryEmail) setAddLine(primaryEmail);
+    router.push("/signup");
+  }
+
+  function doneForNow() {
+    clearFamilyMode();
+    clearAddLine();
+    setDoneAdding(true);
+  }
 
   if (!ready || !account) return null;
 
@@ -175,6 +198,39 @@ export default function OnboardingPage() {
           )}
         </StepCard>
       </div>
+
+      {/* Family plan: after this line is set up, offer to add another. Loops
+          until "Done for Now". */}
+      {isFamily && !doneAdding && (
+        <Card className="mt-8 border-primary/30 bg-accent/30">
+          <CardContent className="flex flex-col items-center gap-4 py-6 text-center">
+            <div>
+              <p className="font-display text-lg font-semibold">
+                Add a family member?
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Add another line under this account. Each member picks their own
+                plan and number.
+              </p>
+            </div>
+            <div className="flex w-full max-w-sm flex-col gap-2 sm:flex-row">
+              <Button className="flex-1" onClick={addAnotherLine}>
+                Add Another Line
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" className="flex-1" onClick={doneForNow}>
+                Done for Now
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {doneAdding && (
+        <p className="mt-6 rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+          You can add more lines anytime from your account.
+        </p>
+      )}
 
       <Button asChild size="lg" className="mt-8 w-full">
         <Link href="/status">

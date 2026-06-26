@@ -4,6 +4,7 @@ import {
   MessageSquare,
   Phone,
   Signal,
+  Users,
   Wifi,
   ArrowRight,
 } from "lucide-react";
@@ -153,6 +154,33 @@ export default function LandingPage() {
               </Card>
             );
           })}
+        </div>
+
+        {/* Family Plan — multiple lines under one account. */}
+        <div className="mx-auto mt-6 max-w-5xl">
+          <Card className="border-primary/30 bg-accent/30">
+            <CardContent className="flex flex-col items-start gap-5 py-6 md:flex-row md:items-center md:justify-between">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" />
+                  <h3 className="font-display text-xl font-semibold">Family Plan</h3>
+                </div>
+                <p className="text-sm font-medium text-primary">
+                  Multiple lines, one bill
+                </p>
+                <p className="max-w-xl text-sm text-muted-foreground">
+                  Add lines for family members under a single account. Each
+                  member chooses their own plan.
+                </p>
+              </div>
+              <Button asChild size="lg" className="w-full shrink-0 md:w-auto">
+                <Link href="/signup?family=true">
+                  Start a Family Plan
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </section>
 
