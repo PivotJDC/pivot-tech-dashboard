@@ -14,11 +14,28 @@ import type { Account, ServiceChoice } from "./api";
 const DRAFT_KEY = "pivot.signup.draft";
 const ACCOUNT_KEY = "pivot.account";
 
+export interface Address {
+  line1: string;
+  line2?: string;
+  city: string;
+  state: string;
+  zip: string;
+}
+
 export interface SignupDraft {
   email: string;
   service: ServiceChoice;
   /** Selected plan id (lib/plans.ts). */
   plan: string;
+  // Enrollment details (required by Telgoo5). Optional on the type so older
+  // drafts and the add-a-line path stay valid.
+  firstName?: string;
+  lastName?: string;
+  serviceAddress?: Address;
+  billingAddress?: Address;
+  /** When true, billingAddress mirrors serviceAddress. Defaults to true. */
+  billingSameAsService?: boolean;
+  promoCode?: string;
 }
 
 function read<T>(key: string): T | null {

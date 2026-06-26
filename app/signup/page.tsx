@@ -17,6 +17,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { UsStatesSelect } from "@/components/us-states-select";
 import { createAccount, ApiError, type ServiceChoice } from "@/lib/api";
 import {
   clearAddLine,
@@ -26,17 +27,34 @@ import {
   saveDraft,
   setAddLine,
   setFamilyMode,
+  type Address,
 } from "@/lib/session";
 import { areaCodeFromNumber, marketForAreaCode } from "@/lib/markets";
 import { PLANS, DEFAULT_PLAN, type Plan } from "@/lib/plans";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const ZIP_RE = /^\d{5}$/;
+const EMPTY_ADDRESS: Address = {
+  line1: "", line2: "", city: "", state: "", zip: "",
+};
+
+function addressValid(a: Address): boolean {
+  return Boolean(a.line1.trim() && a.city.trim() && a.state && ZIP_RE.test(a.zip));
+}
 
 export default function SignupPage() {
   const router = useRouter();
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [email, setEmail] = useState("");
   const [plan, setPlan] = useState(DEFAULT_PLAN.id);
+  // Step 2 — enrollment details (Telgoo5).
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [serviceAddress, setServiceAddress] = useState<Address>(EMPTY_ADDRESS);
+  const [billingSameAsService, setBillingSameAsService] = useState(true);
+  const [billingAddress, setBillingAddress] = useState<Address>(EMPTY_ADDRESS);
+  const [promoCode, setPromoCode] = useState("");
+  const [showPromo, setShowPromo] = useState(false);
   // True once a valid plan arrives via ?plan= (landing-page pricing card). When
   // set, the picker collapses to a confirmed summary so the user lands straight
   // on email entry.
@@ -73,7 +91,33 @@ export default function SignupPage() {
 
   const emailValid = EMAIL_RE.test(email);
   const selectedPlan = PLANS.find((p) => p.id === plan) ?? DEFAULT_PLAN;
+  const infoValid = Boolean(firstName.trim() && lastName.trim())
+    && addressValid(serviceAddress)
+    && (billingSameAsService || addressValid(billingAddress));
 
+  const setServiceField = (field: keyof Address, value: string) => setServiceAddress(
+    (a) => ({ ...a, [field]: value }),
+  );
+  const setBillingField = (field: keyof Address, value: string) => setBillingAddress(
+    (a) => ({ ...a, [field]: value }),
+  );
+
+  /** The full draft to hand off to the choose-number step. */
+  function buildDraft() {
+    return {
+      email,
+      service,
+      plan,
+      firstName,
+      lastName,
+      serviceAddress,
+      billingAddress,
+      billingSameAsService,
+      promoCode,
+    };
+  }
+
+  // Step 1 (plan + email) → Step 2 (your information).
   function goToStep2() {
     if (!emailValid) {
       setError("Please enter a valid email address.");
@@ -83,14 +127,26 @@ export default function SignupPage() {
     setStep(2);
   }
 
+  // Step 2 (your information) → Step 3 (number).
+  function goToStep3() {
+    if (!infoValid) {
+      setError("Please complete your name and address (ZIP must be 5 digits).");
+      return;
+    }
+    setError(null);
+    saveDraft(buildDraft());
+    setStep(3);
+  }
+
   async function handleSubmit(addLine = false) {
     setError(null);
     setDuplicateEmail(false);
 
     // New number: we can't create the account until the customer picks a
-    // specific number, so defer the POST to /signup/choose-number.
+    // specific number, so defer the POST to /signup/choose-number (the draft
+    // carries name/address/promo for that step).
     if (service === "new") {
-      saveDraft({ email, service, plan });
+      saveDraft(buildDraft());
       router.push("/signup/choose-number");
       return;
     }
@@ -109,6 +165,7 @@ export default function SignupPage() {
     // Add-a-line: send the primary's email so the middleware ports this number
     // in as a child line. Honor either the explicit arg or a stored flag.
     const parentEmail = addLine || getAddLine() ? getAddLineEmail() : "";
+    const billing = billingSameAsService ? serviceAddress : billingAddress;
     try {
       const account = await createAccount({
         email,
@@ -120,8 +177,13 @@ export default function SignupPage() {
           losing_carrier: "",
           account_number: "",
           pin: "",
-          billing_zip: "",
+          billing_zip: serviceAddress.zip,
         },
+        first_name: firstName,
+        last_name: lastName,
+        service_address: serviceAddress,
+        billing_address: billing,
+        ...(promoCode ? { promo_code: promoCode } : {}),
         ...(parentEmail ? { parent_email: parentEmail } : {}),
       });
       clearAddLine();
@@ -182,15 +244,18 @@ export default function SignupPage() {
       <Card>
         <CardHeader>
           <p className="text-sm font-medium text-primary">
-            Step {step} of 2
+            Step {step} of 3
           </p>
           <CardTitle>
-            {step === 1 ? "Let's get you set up" : "Pick your number"}
+            {step === 1 && "Let's get you set up"}
+            {step === 2 && "Your information"}
+            {step === 3 && "Pick your number"}
           </CardTitle>
           <CardDescription>
             {step === 1
-              ? `${selectedPlan.name} — ${selectedPlan.description} for $${selectedPlan.price}/month.`
-              : "Start fresh with a new number, or bring your current one."}
+              && `${selectedPlan.name} — ${selectedPlan.description} for $${selectedPlan.price}/month.`}
+            {step === 2 && "We need your name and address to activate service."}
+            {step === 3 && "Start fresh with a new number, or bring your current one."}
           </CardDescription>
         </CardHeader>
 
@@ -249,6 +314,78 @@ export default function SignupPage() {
           )}
 
           {step === 2 && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="first-name">First name</Label>
+                  <Input
+                    id="first-name"
+                    autoComplete="given-name"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="last-name">Last name</Label>
+                  <Input
+                    id="last-name"
+                    autoComplete="family-name"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <AddressFields
+                idPrefix="svc"
+                label="Service address"
+                address={serviceAddress}
+                onField={setServiceField}
+              />
+
+              <label className="flex cursor-pointer items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-input"
+                  checked={billingSameAsService}
+                  onChange={(e) => setBillingSameAsService(e.target.checked)}
+                />
+                Billing address same as service address
+              </label>
+
+              {!billingSameAsService && (
+                <AddressFields
+                  idPrefix="bill"
+                  label="Billing address"
+                  address={billingAddress}
+                  onField={setBillingField}
+                />
+              )}
+
+              {showPromo ? (
+                <div className="space-y-2">
+                  <Label htmlFor="promo">Promo code</Label>
+                  <Input
+                    id="promo"
+                    placeholder="e.g. FOX-12345"
+                    value={promoCode}
+                    onChange={(e) => setPromoCode(e.target.value)}
+                  />
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowPromo(true)}
+                  className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+                >
+                  Have a promo code?
+                </button>
+              )}
+            </>
+          )}
+
+          {step === 3 && (
             <RadioGroup
               value={service}
               onValueChange={(v) => setService(v as ServiceChoice)}
@@ -321,12 +458,22 @@ export default function SignupPage() {
               Continue
               <ArrowRight className="h-4 w-4" />
             </Button>
+          ) : step === 2 ? (
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => setStep(1)}>
+                Back
+              </Button>
+              <Button className="flex-[2]" onClick={goToStep3} disabled={!infoValid}>
+                Continue
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
           ) : (
             <div className="flex gap-3">
               <Button
                 variant="outline"
                 className="flex-1"
-                onClick={() => setStep(1)}
+                onClick={() => setStep(2)}
                 disabled={submitting}
               >
                 Back
@@ -345,6 +492,62 @@ export default function SignupPage() {
         </CardContent>
       </Card>
     </main>
+  );
+}
+
+function AddressFields({
+  idPrefix,
+  label,
+  address,
+  onField,
+}: {
+  idPrefix: string;
+  label: string;
+  address: Address;
+  onField: (field: keyof Address, value: string) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <Input
+        id={`${idPrefix}-line1`}
+        autoComplete="address-line1"
+        placeholder="Street address"
+        value={address.line1}
+        onChange={(e) => onField("line1", e.target.value)}
+      />
+      <Input
+        id={`${idPrefix}-line2`}
+        autoComplete="address-line2"
+        placeholder="Apt, suite, etc. (optional)"
+        value={address.line2 ?? ""}
+        onChange={(e) => onField("line2", e.target.value)}
+      />
+      <div className="grid grid-cols-2 gap-3">
+        <Input
+          id={`${idPrefix}-city`}
+          autoComplete="address-level2"
+          placeholder="City"
+          value={address.city}
+          onChange={(e) => onField("city", e.target.value)}
+        />
+        <UsStatesSelect
+          id={`${idPrefix}-state`}
+          value={address.state}
+          onChange={(v) => onField("state", v)}
+        />
+      </div>
+      <Input
+        id={`${idPrefix}-zip`}
+        inputMode="numeric"
+        maxLength={5}
+        autoComplete="postal-code"
+        placeholder="ZIP code"
+        value={address.zip}
+        onChange={(e) => onField("zip", e.target.value.replace(/\D/g, "").slice(0, 5))}
+        className="max-w-[10rem]"
+      />
+    </div>
   );
 }
 

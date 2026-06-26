@@ -146,6 +146,20 @@ export interface CreateAccountInput {
    * creates this as a child line under that primary instead of a new account.
    */
   parent_email?: string;
+  // Enrollment details (used for Telgoo5 billing enrollment).
+  first_name?: string;
+  last_name?: string;
+  service_address?: AddressInput;
+  billing_address?: AddressInput;
+  promo_code?: string;
+}
+
+export interface AddressInput {
+  line1: string;
+  line2?: string;
+  city: string;
+  state: string;
+  zip: string;
 }
 
 export interface AccountStatus {

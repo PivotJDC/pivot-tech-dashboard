@@ -88,6 +88,10 @@ export default function ChooseNumberPage() {
     // Add-a-line: send the primary's email so the middleware creates this as a
     // child line. Honor either the explicit arg or a previously-stored flag.
     const parentEmail = addLine || getAddLine() ? getAddLineEmail() : "";
+    // Enrollment details captured in step 2 of /signup, resolved for billing.
+    const billing = draft.billingSameAsService === false
+      ? draft.billingAddress
+      : draft.serviceAddress;
     try {
       const account = await createAccount({
         email: draft.email,
@@ -95,6 +99,11 @@ export default function ChooseNumberPage() {
         plan: draft.plan,
         service: "new",
         phone_e164: selected,
+        first_name: draft.firstName,
+        last_name: draft.lastName,
+        service_address: draft.serviceAddress,
+        billing_address: billing,
+        ...(draft.promoCode ? { promo_code: draft.promoCode } : {}),
         ...(parentEmail ? { parent_email: parentEmail } : {}),
       });
       clearAddLine();
