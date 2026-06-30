@@ -9,9 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/admin/status-badge";
+import { HistoryTable } from "@/components/history-table";
 import { useAdminFetch } from "@/components/admin/use-admin-fetch";
 import {
   getAccount,
+  getAccountHistory,
   reissueProvisioning,
   setAccountStatus,
   accountAction,
@@ -110,7 +112,32 @@ function AccountDetail({
         <ForceStatusCard account={account} onChanged={onChanged} />
         <ReissueCard accountId={account.id} />
       </div>
+
+      <HistorySection accountId={account.id} />
     </div>
+  );
+}
+
+function HistorySection({ accountId }: { accountId: string }) {
+  const fetcher = useCallback(() => getAccountHistory(accountId, { limit: 100 }), [accountId]);
+  const { data, loading, error } = useAdminFetch(fetcher, [accountId]);
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">
+        Call &amp; Message History
+      </h2>
+      {loading ? (
+        <div className="flex items-center gap-2 py-6 text-slate-500">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading history…
+        </div>
+      ) : error ? (
+        <p className="text-sm text-red-600">{error}</p>
+      ) : (
+        <HistoryTable calls={data?.calls ?? []} messages={data?.messages ?? []} />
+      )}
+    </section>
   );
 }
 

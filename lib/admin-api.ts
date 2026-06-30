@@ -6,7 +6,12 @@
  * pagination; metrics is grouped counts). Reuses ApiError from lib/api so
  * callers get { status, code, message } and can branch on 401/403.
  */
-import { ApiError, type Account, type ProvisioningLinks } from "./api";
+import {
+  ApiError,
+  type Account,
+  type ProvisioningLinks,
+  type AccountHistory,
+} from "./api";
 import { getAdminToken } from "./admin-auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -183,6 +188,16 @@ export function listAccounts(filters: AccountFilters = {}) {
 
 export function getAccount(id: string) {
   return adminRequest<AdminAccount>(`/admin/accounts/${encodeURIComponent(id)}`);
+}
+
+/** GET /admin/accounts/:id/history — call + message history. */
+export function getAccountHistory(
+  id: string,
+  filters: { limit?: number; offset?: number } = {},
+) {
+  return adminRequest<AccountHistory>(
+    `/admin/accounts/${encodeURIComponent(id)}/history${qs(filters)}`,
+  );
 }
 
 export function reissueProvisioning(id: string) {

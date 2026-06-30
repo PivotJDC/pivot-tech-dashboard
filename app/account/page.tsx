@@ -9,10 +9,13 @@ import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/admin/status-badge";
+import { HistoryTable } from "@/components/history-table";
 import {
   clearAccount, getAccount, saveAccount, setAddLine,
 } from "@/lib/session";
-import { getAccountStatus, type Account } from "@/lib/api";
+import {
+  getAccountStatus, getAccountHistory, type Account, type CallRecord, type MessageRecord,
+} from "@/lib/api";
 import { planById } from "@/lib/plans";
 import { formatPhone } from "@/lib/format";
 
@@ -30,6 +33,8 @@ export default function AccountPage() {
   const [account, setAccount] = useState<Account | null>(null);
   const [ready, setReady] = useState(false);
   const [liveStatus, setLiveStatus] = useState<string | null>(null);
+  const [calls, setCalls] = useState<CallRecord[]>([]);
+  const [messages, setMessages] = useState<MessageRecord[]>([]);
 
   useEffect(() => {
     const a = getAccount();
@@ -52,6 +57,14 @@ export default function AccountPage() {
           saveAccount(updated);
           setAccount(updated);
         }
+      })
+      .catch(() => {});
+
+    // Call + message history (best-effort).
+    getAccountHistory(a.id, { limit: 50 })
+      .then((h) => {
+        setCalls(h.calls ?? []);
+        setMessages(h.messages ?? []);
       })
       .catch(() => {});
   }, [router]);
@@ -218,6 +231,19 @@ export default function AccountPage() {
             </div>
           </Section>
         )}
+
+        {/* Call & message history. */}
+        <Card>
+          <CardContent className="space-y-4 py-6">
+            <div className="text-center">
+              <p className="font-semibold">Call &amp; Message History</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Your recent calls and messages.
+              </p>
+            </div>
+            <HistoryTable calls={calls} messages={messages} />
+          </CardContent>
+        </Card>
       </div>
 
       <Button asChild size="lg" variant="outline" className="mt-8 w-full">

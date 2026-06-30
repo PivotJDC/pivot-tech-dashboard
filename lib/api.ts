@@ -209,6 +209,47 @@ export function getAccountStatus(id: string): Promise<AccountStatus> {
   return request<AccountStatus>(`/v1/accounts/${encodeURIComponent(id)}/status`);
 }
 
+export interface CallRecord {
+  id: string;
+  direction: "inbound" | "outbound";
+  from_number: string;
+  to_number: string;
+  status: string;
+  duration_seconds: number;
+  started_at?: string | null;
+  ended_at?: string | null;
+  created_at: string;
+}
+
+export interface MessageRecord {
+  id: string;
+  direction: "inbound" | "outbound";
+  from_number: string;
+  to_number: string;
+  status: string;
+  message_type: "sms" | "mms";
+  created_at: string;
+}
+
+export interface AccountHistory {
+  calls: CallRecord[];
+  messages: MessageRecord[];
+}
+
+/** GET /v1/accounts/:id/history — call + message history (owner JWT). */
+export function getAccountHistory(
+  id: string,
+  opts: { limit?: number; offset?: number } = {},
+): Promise<AccountHistory> {
+  const params = new URLSearchParams();
+  if (opts.limit != null) params.set("limit", String(opts.limit));
+  if (opts.offset != null) params.set("offset", String(opts.offset));
+  const qs = params.toString();
+  return request<AccountHistory>(
+    `/v1/accounts/${encodeURIComponent(id)}/history${qs ? `?${qs}` : ""}`,
+  );
+}
+
 /**
  * POST /v1/auth/send-code — request a passwordless login code for an email.
  * Always resolves { sent: true } regardless of whether the email has an account.
