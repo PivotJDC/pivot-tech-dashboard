@@ -3,13 +3,15 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Info, Smartphone, Users } from "lucide-react";
+import { ArrowRight, Info, LogOut, Smartphone, Users } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/admin/status-badge";
-import { getAccount, saveAccount, setAddLine } from "@/lib/session";
+import {
+  clearAccount, getAccount, saveAccount, setAddLine,
+} from "@/lib/session";
 import { getAccountStatus, type Account } from "@/lib/api";
 import { planById } from "@/lib/plans";
 import { formatPhone } from "@/lib/format";
@@ -59,6 +61,11 @@ export default function AccountPage() {
     router.push("/signup");
   }
 
+  function logout() {
+    clearAccount();
+    router.replace("/login");
+  }
+
   if (!ready || !account) return null;
 
   const status = liveStatus ?? account.status;
@@ -79,7 +86,17 @@ export default function AccountPage() {
             {account.email}
           </h1>
         </div>
-        <StatusBadge status={status} />
+        <div className="flex items-center gap-3">
+          <StatusBadge status={status} />
+          <button
+            type="button"
+            onClick={logout}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign out
+          </button>
+        </div>
       </header>
 
       {/* Number + plan summary. */}

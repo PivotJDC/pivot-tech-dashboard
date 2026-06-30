@@ -55,6 +55,12 @@ export const getDraft = () => read<SignupDraft>(DRAFT_KEY);
 export const saveAccount = (a: Account) => write(ACCOUNT_KEY, a);
 export const getAccount = () => read<Account>(ACCOUNT_KEY);
 
+/** Clear the stored account (customer sign-out). */
+export function clearAccount() {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.removeItem(ACCOUNT_KEY);
+}
+
 // "Add a line" intent: the customer hit a duplicate-email at signup and chose to
 // add another line to their existing account. Stored as a plain "true" flag plus
 // the email, for the (future) middleware child-account linking step to consume.
