@@ -2,17 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Lock, Signal } from "lucide-react";
+import { Lock, Signal, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getAdminToken, saveAdminToken } from "@/lib/admin-auth";
+import { adminLogin } from "@/lib/admin-api";
+import { ApiError } from "@/lib/api";
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const [token, setToken] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(true);
 
   // Already signed in → skip the gate.
@@ -24,17 +28,23 @@ export default function AdminLoginPage() {
     }
   }, [router]);
 
-  // No frontend comparison: store whatever is entered and let the middleware
-  // validate it. An invalid token round-trips back here via useAdminFetch's
-  // 401/403 handling.
-  function submit() {
-    const value = token.trim();
-    if (!value) {
-      setError("Enter your admin token.");
+  async function submit() {
+    if (!username.trim() || !password) {
+      setError("Enter your username and password.");
       return;
     }
-    saveAdminToken(value);
-    router.replace("/admin/dashboard");
+    setBusy(true);
+    setError(null);
+    try {
+      const { token } = await adminLogin(username.trim(), password);
+      saveAdminToken(token);
+      router.replace("/admin/dashboard");
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? err.message : "Sign in failed. Please try again.",
+      );
+      setBusy(false);
+    }
   }
 
   if (checking) return null;
@@ -52,22 +62,34 @@ export default function AdminLoginPage() {
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="token" className="text-slate-700">
-              Admin token
+            <Label htmlFor="username" className="text-slate-700">
+              Username
             </Label>
             <Input
-              id="token"
-              type="password"
-              autoComplete="off"
-              placeholder="Paste your admin JWT"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
+              id="username"
+              type="text"
+              autoComplete="username"
+              placeholder="jim"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && submit()}
               autoFocus
             />
-            <p className="text-xs text-slate-500">
-              Your token is validated by the API, not stored on any server.
-            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="password" className="text-slate-700">
+              Password
+            </Label>
+            <Input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submit()}
+            />
           </div>
 
           {error && (
@@ -76,8 +98,12 @@ export default function AdminLoginPage() {
             </p>
           )}
 
-          <Button className="w-full" onClick={submit}>
-            <Lock className="h-4 w-4" />
+          <Button className="w-full" onClick={submit} disabled={busy}>
+            {busy ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Lock className="h-4 w-4" />
+            )}
             Sign in
           </Button>
         </div>

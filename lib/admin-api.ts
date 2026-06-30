@@ -130,7 +130,46 @@ export interface AccountFilters {
   offset?: number;
 }
 
+export interface AdminLoginResult {
+  token: string;
+  username: string;
+  role: string;
+}
+
 // --- Calls --------------------------------------------------------------
+
+/**
+ * POST /admin/login — exchange username + password for a signed admin JWT.
+ * Public (no token), so it uses a bare fetch rather than adminRequest.
+ */
+export async function adminLogin(
+  username: string,
+  password: string,
+): Promise<AdminLoginResult> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}/admin/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+  } catch {
+    throw new ApiError(0, "NETWORK_ERROR", "Couldn't reach the API.");
+  }
+  const text = await res.text();
+  const body = text ? JSON.parse(text) : null;
+  if (!res.ok) {
+    const err = body?.error ?? {};
+    throw new ApiError(
+      res.status,
+      err.code ?? "INTERNAL_ERROR",
+      err.message ?? "Login failed.",
+      err.field,
+      err.trace_id,
+    );
+  }
+  return body as AdminLoginResult;
+}
 
 export function getMetrics() {
   return adminRequest<Metrics>("/admin/metrics");
