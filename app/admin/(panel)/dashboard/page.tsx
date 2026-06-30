@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback } from "react";
-import { Users, Hash, ArrowLeftRight, DollarSign, Loader2 } from "lucide-react";
+import {
+  Users, UserCheck, Clock, DollarSign, Loader2,
+} from "lucide-react";
 
 import { MetricCard } from "@/components/admin/metric-card";
 import { useAdminFetch } from "@/components/admin/use-admin-fetch";
@@ -12,10 +14,6 @@ export default function DashboardPage() {
   const fetcher = useCallback(() => getMetrics(), []);
   const { data, loading, error } = useAdminFetch(fetcher, []);
 
-  // Pending = in-flight ports (not yet completed or failed).
-  const pendingPorts = data
-    ? Math.max(data.ports.total - data.ports.completed - data.ports.failed, 0)
-    : 0;
   // Revenue estimate uses the active account count × the plan price.
   const revenue = data ? data.accounts.active * DEFAULT_PLAN.price : 0;
 
@@ -38,22 +36,22 @@ export default function DashboardPage() {
       ) : data ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard
-            label="Active accounts"
-            value={data.accounts.active.toLocaleString()}
-            sublabel={`${data.accounts.total.toLocaleString()} total`}
+            label="Total accounts"
+            value={data.accounts.total.toLocaleString()}
+            sublabel={`${data.accounts.cancelled.toLocaleString()} cancelled`}
             icon={Users}
           />
           <MetricCard
-            label="DIDs assigned"
-            value={data.dids.assigned.toLocaleString()}
-            sublabel={`${data.dids.available.toLocaleString()} available`}
-            icon={Hash}
+            label="Active accounts"
+            value={data.accounts.active.toLocaleString()}
+            sublabel={`${data.accounts.suspended.toLocaleString()} suspended`}
+            icon={UserCheck}
           />
           <MetricCard
-            label="Pending ports"
-            value={pendingPorts.toLocaleString()}
-            sublabel={`${data.ports.total.toLocaleString()} total ports`}
-            icon={ArrowLeftRight}
+            label="Pending accounts"
+            value={data.accounts.pending.toLocaleString()}
+            sublabel="awaiting activation"
+            icon={Clock}
           />
           <MetricCard
             label="Revenue estimate"

@@ -91,3 +91,7 @@ export const PLANS: Plan[] = [
  */
 export const DEFAULT_PLAN =
   PLANS.find((p) => p.id === "unlimited_25") ?? PLANS[0];
+
+/** Look up a plan by its slug; returns undefined for an unknown id. */
+export const planById = (id?: string | null): Plan | undefined =>
+  id ? PLANS.find((p) => p.id === id) : undefined;

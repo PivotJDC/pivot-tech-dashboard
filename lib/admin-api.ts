@@ -90,9 +90,15 @@ export interface AdminAccount extends Account {
   sip_endpoint_id?: string | null;
   sip_username?: string | null;
   esim_iccid?: string | null;
+  /** Billing provider (accounts.external_billing_provider). */
+  external_billing_provider?: string | null;
+  bics_provisioned?: boolean;
   created_at?: string;
   activated_at?: string | null;
 }
+
+/** Account actions backed by PATCH /admin/accounts/:id { action }. */
+export type AccountAction = "retry_bics" | "activate" | "suspend" | "cancel";
 
 export interface Did {
   id: string;
@@ -118,6 +124,8 @@ export interface PortRequest {
 export interface AccountFilters {
   status?: string;
   market?: string;
+  /** Free-text search across email + phone (server-side ILIKE). */
+  search?: string;
   limit?: number;
   offset?: number;
 }
@@ -150,6 +158,18 @@ export function setAccountStatus(id: string, status: string, reason: string) {
     `/admin/accounts/${encodeURIComponent(id)}/status`,
     { method: "PATCH", body: JSON.stringify({ status, reason }) },
   );
+}
+
+/**
+ * Run an account action via PATCH /admin/accounts/:id — e.g. "retry_bics"
+ * (re-run eSIM provisioning) or "cancel" (set status to cancelled). Returns the
+ * updated account.
+ */
+export function accountAction(id: string, action: AccountAction) {
+  return adminRequest<AdminAccount>(`/admin/accounts/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ action }),
+  });
 }
 
 export function listDids(

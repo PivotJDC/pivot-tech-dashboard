@@ -104,11 +104,24 @@ export interface Account {
   status: string;
   phone_e164?: string;
   market?: string;
+  /** Plan slug (see lib/plans.ts), e.g. "unlimited_25". */
+  plan?: string;
   provisioning?: ProvisioningLinks;
   /** Present on success; null when BICS provisioning failed (see esim_error). */
   esim?: Esim | null;
   /** Set when esim is null — a customer-facing reason. */
   esim_error?: string;
+  // Enrollment / family fields (present on the serialized account).
+  first_name?: string;
+  last_name?: string;
+  service_address?: AddressInput | null;
+  billing_address?: AddressInput | null;
+  /** Null for a primary account; set for a child (family) line. */
+  parent_account_id?: string | null;
+  /** Count of child lines under this primary (0 when none). */
+  line_count?: number;
+  created_at?: string;
+  activated_at?: string | null;
 }
 
 export interface AvailableNumber {

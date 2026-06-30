@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Loader2, RefreshCw } from "lucide-react";
+import { ArrowLeft, Loader2, RefreshCw, RotateCcw, Ban } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,9 +14,11 @@ import {
   getAccount,
   reissueProvisioning,
   setAccountStatus,
+  accountAction,
   type AdminAccount,
 } from "@/lib/admin-api";
 import { ApiError, type ProvisioningLinks } from "@/lib/api";
+import { planById } from "@/lib/plans";
 import { formatDate, formatPhone } from "@/lib/format";
 
 // Allowed forward transitions (mirrors the middleware state machine).
@@ -83,21 +85,26 @@ function AccountDetail({
         </h2>
         <dl className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
           <Field label="Account ID" value={account.id} mono />
-          <Field label="Plan" value={account.plan ?? "—"} />
+          <Field
+            label="Plan"
+            value={planById(account.plan)?.name ?? account.plan ?? "—"}
+          />
+          <Field
+            label="Billing provider"
+            value={account.external_billing_provider ?? "—"}
+          />
           <Field label="Created" value={formatDate(account.created_at)} />
           <Field label="Activated" value={formatDate(account.activated_at)} />
           <Field label="SIP username" value={account.sip_username ?? "—"} mono />
+          <Field label="eSIM ICCID" value={account.esim_iccid ?? "—"} mono />
           <Field
-            label="eSIM ICCID"
-            value={account.esim_iccid ?? "—"}
-            mono
-          />
-          <Field
-            label="Provisioned"
-            value={account.sip_endpoint_id ? "Yes" : "No"}
+            label="eSIM provisioned"
+            value={account.bics_provisioned ? "Yes" : "No"}
           />
         </dl>
       </section>
+
+      <ActionsCard account={account} onChanged={onChanged} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <ForceStatusCard account={account} onChanged={onChanged} />
@@ -125,6 +132,97 @@ function Field({
         {value}
       </dd>
     </div>
+  );
+}
+
+function ActionsCard({
+  account,
+  onChanged,
+}: {
+  account: AdminAccount;
+  onChanged: () => void;
+}) {
+  const [busy, setBusy] = useState<"retry_bics" | "cancel" | null>(null);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const cancelled = account.status === "cancelled";
+
+  async function retryBics() {
+    setBusy("retry_bics");
+    setMsg(null);
+    try {
+      await accountAction(account.id, "retry_bics");
+      setMsg({ ok: true, text: "BICS eSIM provisioning retried." });
+      onChanged();
+    } catch (err) {
+      setMsg({
+        ok: false,
+        text: err instanceof ApiError ? err.message : "Retry failed.",
+      });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function cancelAccount() {
+    // eslint-disable-next-line no-alert
+    if (!window.confirm(`Cancel the account for ${account.email}? This suspends service.`)) {
+      return;
+    }
+    setBusy("cancel");
+    setMsg(null);
+    try {
+      await accountAction(account.id, "cancel");
+      setMsg({ ok: true, text: "Account cancelled." });
+      onChanged();
+    } catch (err) {
+      setMsg({
+        ok: false,
+        text: err instanceof ApiError ? err.message : "Cancel failed.",
+      });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-slate-500">
+        Actions
+      </h2>
+      <p className="mt-1 text-sm text-slate-500">
+        Re-run eSIM provisioning or cancel this account.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-3">
+        <Button variant="outline" onClick={retryBics} disabled={busy !== null}>
+          {busy === "retry_bics" ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <RotateCcw className="h-4 w-4" />
+          )}
+          Retry BICS
+        </Button>
+        <Button
+          variant="outline"
+          onClick={cancelAccount}
+          disabled={busy !== null || cancelled}
+          className="border-red-200 text-red-700 hover:bg-red-50"
+        >
+          {busy === "cancel" ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Ban className="h-4 w-4" />
+          )}
+          {cancelled ? "Cancelled" : "Cancel account"}
+        </Button>
+      </div>
+      {msg && (
+        <p
+          className={`mt-3 text-sm font-medium ${msg.ok ? "text-emerald-600" : "text-red-600"}`}
+        >
+          {msg.text}
+        </p>
+      )}
+    </section>
   );
 }
 

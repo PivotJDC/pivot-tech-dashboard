@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, Search } from "lucide-react";
 
 import { StatusBadge } from "@/components/admin/status-badge";
 import { useAdminFetch } from "@/components/admin/use-admin-fetch";
 import { listAccounts } from "@/lib/admin-api";
+import { planById } from "@/lib/plans";
 import { formatDate, formatPhone } from "@/lib/format";
 
 const PAGE_SIZE = 25;
@@ -17,13 +18,26 @@ export default function AccountsPage() {
   const router = useRouter();
   const [status, setStatus] = useState("");
   const [market, setMarket] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
   const [offset, setOffset] = useState(0);
 
+  // Debounce the search box so we don't fire a request per keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setOffset(0);
+      setSearch(searchInput.trim());
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
   const fetcher = useCallback(
-    () => listAccounts({ status, market, limit: PAGE_SIZE, offset }),
-    [status, market, offset],
+    () => listAccounts({
+      status, market, search, limit: PAGE_SIZE, offset,
+    }),
+    [status, market, search, offset],
   );
-  const { data, loading, error } = useAdminFetch(fetcher, [status, market, offset]);
+  const { data, loading, error } = useAdminFetch(fetcher, [status, market, search, offset]);
 
   const total = data?.pagination.total ?? 0;
   const accounts = data?.accounts ?? [];
@@ -42,7 +56,18 @@ export default function AccountsPage() {
         <p className="text-sm text-slate-500">{total.toLocaleString()} total</p>
       </header>
 
-      <div className="mb-4 flex flex-wrap gap-3">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            type="search"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search email or phone…"
+            aria-label="Search accounts by email or phone"
+            className="w-64 rounded-md border border-slate-300 bg-white py-1.5 pl-8 pr-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+          />
+        </div>
         <Select
           label="Status"
           value={status}
@@ -63,10 +88,10 @@ export default function AccountsPage() {
             <tr>
               <Th>Email</Th>
               <Th>Phone</Th>
-              <Th>Market</Th>
               <Th>Status</Th>
+              <Th>Plan</Th>
+              <Th>Billing</Th>
               <Th>Created</Th>
-              <Th>Provisioned</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -97,12 +122,12 @@ export default function AccountsPage() {
                 >
                   <Td className="font-medium text-slate-900">{a.email}</Td>
                   <Td className="tabular-nums">{formatPhone(a.phone_e164)}</Td>
-                  <Td>{a.market ?? "—"}</Td>
                   <Td>
                     <StatusBadge status={a.status} />
                   </Td>
+                  <Td>{planById(a.plan)?.name ?? a.plan ?? "—"}</Td>
+                  <Td className="capitalize">{a.external_billing_provider ?? "—"}</Td>
                   <Td className="text-slate-500">{formatDate(a.created_at)}</Td>
-                  <Td>{a.sip_endpoint_id ? "Yes" : "No"}</Td>
                 </tr>
               ))
             )}
