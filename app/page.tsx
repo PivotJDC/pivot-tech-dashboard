@@ -43,9 +43,14 @@ export default function LandingPage() {
           <Signal className="h-6 w-6 text-primary" />
           <span className="font-display text-xl font-semibold">Pivot-Tech</span>
         </div>
-        <Button asChild variant="ghost" size="sm">
-          <Link href="/status">My account</Link>
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/login">Sign in</Link>
+          </Button>
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/status">My account</Link>
+          </Button>
+        </div>
       </header>
 
       <section className="container flex flex-col items-center pb-20 pt-10 text-center sm:pt-16">

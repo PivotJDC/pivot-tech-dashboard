@@ -208,3 +208,28 @@ export function getAvailableNumbers(
 export function getAccountStatus(id: string): Promise<AccountStatus> {
   return request<AccountStatus>(`/v1/accounts/${encodeURIComponent(id)}/status`);
 }
+
+/**
+ * POST /v1/auth/send-code — request a passwordless login code for an email.
+ * Always resolves { sent: true } regardless of whether the email has an account.
+ */
+export function sendCode(email: string): Promise<{ sent: boolean }> {
+  return request<{ sent: boolean }>("/v1/auth/send-code", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+/**
+ * POST /v1/auth/verify-code — exchange a valid code for a customer JWT + the
+ * serialized account. Throws ApiError (401) on an invalid/expired code.
+ */
+export function verifyCode(
+  email: string,
+  code: string,
+): Promise<{ token: string; account: Account }> {
+  return request<{ token: string; account: Account }>("/v1/auth/verify-code", {
+    method: "POST",
+    body: JSON.stringify({ email, code }),
+  });
+}

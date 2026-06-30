@@ -32,7 +32,8 @@ export default function AccountPage() {
   useEffect(() => {
     const a = getAccount();
     if (!a) {
-      router.replace("/signup");
+      // No session — send returning customers to sign in (not re-signup).
+      router.replace("/login");
       return;
     }
     setAccount(a);
