@@ -7,7 +7,7 @@ import { Lock, Signal, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getAdminToken, saveAdminToken } from "@/lib/admin-auth";
+import { getAdminToken, saveAdminToken, saveAdminRole } from "@/lib/admin-auth";
 import { adminLogin } from "@/lib/admin-api";
 import { ApiError } from "@/lib/api";
 
@@ -36,8 +36,9 @@ export default function AdminLoginPage() {
     setBusy(true);
     setError(null);
     try {
-      const { token } = await adminLogin(username.trim(), password);
+      const { token, role } = await adminLogin(username.trim(), password);
       saveAdminToken(token);
+      saveAdminRole(role);
       router.replace("/admin/dashboard");
     } catch (err) {
       setError(

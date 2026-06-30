@@ -226,6 +226,33 @@ export function accountAction(id: string, action: AccountAction) {
   });
 }
 
+export interface AdminUser {
+  id: string;
+  username: string;
+  email: string;
+  role: "super_admin" | "admin" | "viewer";
+  created_at?: string;
+  last_login_at?: string | null;
+}
+
+/** GET /admin/users — list admin users (super_admin only). */
+export function listAdminUsers() {
+  return adminRequest<{ users: AdminUser[] }>("/admin/users");
+}
+
+/** POST /admin/users — create an admin user (super_admin only). */
+export function createAdminUser(input: {
+  username: string;
+  email: string;
+  password: string;
+  role: string;
+}) {
+  return adminRequest<AdminUser>("/admin/users", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
 export function listDids(
   filters: { market?: string; status?: string; limit?: number; offset?: number } = {},
 ) {

@@ -12,6 +12,7 @@
  * before wider exposure.
  */
 const TOKEN_KEY = "pivot.admin.token";
+const ROLE_KEY = "pivot.admin.role";
 
 /** Persist the token (trimmed) so the Bearer sent to the API is clean. */
 export function saveAdminToken(token: string) {
@@ -25,8 +26,25 @@ export function getAdminToken(): string | null {
   return window.sessionStorage.getItem(TOKEN_KEY);
 }
 
+/**
+ * Persist the logged-in admin's role (from the login response) so the UI can
+ * show/hide super_admin-only features. The middleware remains the real gate —
+ * this is purely cosmetic.
+ */
+export function saveAdminRole(role: string) {
+  if (typeof window !== "undefined") {
+    window.sessionStorage.setItem(ROLE_KEY, role);
+  }
+}
+
+export function getAdminRole(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.sessionStorage.getItem(ROLE_KEY);
+}
+
 export function clearAdminToken() {
   if (typeof window !== "undefined") {
     window.sessionStorage.removeItem(TOKEN_KEY);
+    window.sessionStorage.removeItem(ROLE_KEY);
   }
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -7,24 +8,38 @@ import {
   Users,
   Hash,
   ArrowLeftRight,
+  UserCog,
   LogOut,
   Signal,
   type LucideIcon,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { clearAdminToken } from "@/lib/admin-auth";
+import { clearAdminToken, getAdminRole } from "@/lib/admin-auth";
 
-const NAV: { href: string; label: string; icon: LucideIcon }[] = [
+type NavItem = { href: string; label: string; icon: LucideIcon };
+
+const NAV: NavItem[] = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/accounts", label: "Accounts", icon: Users },
   { href: "/admin/dids", label: "DIDs", icon: Hash },
   { href: "/admin/ports", label: "Ports", icon: ArrowLeftRight },
 ];
 
+// super_admin-only nav entries, appended once the role is known.
+const SUPER_ADMIN_NAV: NavItem[] = [
+  { href: "/admin/users", label: "Users", icon: UserCog },
+];
+
 export function AdminSidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  // Role lives in sessionStorage (client-only), so resolve it after mount to
+  // avoid an SSR/client markup mismatch.
+  const [role, setRole] = useState<string | null>(null);
+  useEffect(() => setRole(getAdminRole()), []);
+
+  const nav = role === "super_admin" ? [...NAV, ...SUPER_ADMIN_NAV] : NAV;
 
   function logout() {
     clearAdminToken();
@@ -42,7 +57,7 @@ export function AdminSidebar() {
       </div>
 
       <nav className="flex-1 space-y-1 px-3 py-2">
-        {NAV.map(({ href, label, icon: Icon }) => {
+        {nav.map(({ href, label, icon: Icon }) => {
           // Highlight the active section, including nested routes like
           // /admin/accounts/[id].
           const active = pathname === href || pathname.startsWith(`${href}/`);
