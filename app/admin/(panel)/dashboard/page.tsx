@@ -6,6 +6,8 @@ import {
 } from "lucide-react";
 
 import { MetricCard } from "@/components/admin/metric-card";
+import { HourlyActivityChart } from "@/components/admin/hourly-activity-chart";
+import { UsageDistributionChart } from "@/components/admin/usage-distribution-chart";
 import { useAdminFetch } from "@/components/admin/use-admin-fetch";
 import { getMetrics } from "@/lib/admin-api";
 import { DEFAULT_PLAN } from "@/lib/plans";
@@ -61,6 +63,12 @@ export default function DashboardPage() {
           />
         </div>
       ) : null}
+
+      {/* Analytics charts — self-fetching, independent of the metric cards. */}
+      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <HourlyActivityChart />
+        <UsageDistributionChart />
+      </div>
     </div>
   );
 }

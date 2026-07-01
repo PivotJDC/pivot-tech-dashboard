@@ -181,6 +181,27 @@ export function getMetrics() {
   return adminRequest<Metrics>("/admin/metrics");
 }
 
+export interface HourlyActivity {
+  hour: number;
+  calls: number;
+  messages: number;
+}
+
+export interface UsageBucket {
+  bucket: string;
+  count: number;
+}
+
+/** GET /admin/analytics/hourly-activity — calls + messages by hour (0-23). */
+export function getHourlyActivity() {
+  return adminRequest<HourlyActivity[]>("/admin/analytics/hourly-activity");
+}
+
+/** GET /admin/analytics/usage-distribution — subscriber counts per GB bucket. */
+export function getUsageDistribution() {
+  return adminRequest<UsageBucket[]>("/admin/analytics/usage-distribution");
+}
+
 export function listAccounts(filters: AccountFilters = {}) {
   return adminRequest<{ accounts: AdminAccount[]; pagination: Pagination }>(
     `/admin/accounts${qs(filters)}`,
