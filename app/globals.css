@@ -31,6 +31,55 @@
     --ring: 32 95% 44%;
 
     --radius: 0.75rem;
+
+    /* mobilitynet.io brand palette as RGB channels, so Tailwind can apply
+     * opacity modifiers (e.g. border-brand-cyan/40) via <alpha-value>. */
+    --brand-bg: 13 22 40; /* #0D1628 */
+    --brand-bg2: 22 33 53; /* #162135 */
+    --brand-bg3: 30 45 68; /* #1E2D44 */
+    --brand-cyan: 0 212 255; /* #00D4FF */
+    --brand-amber: 245 158 11; /* #F59E0B */
+    --brand-green: 16 185 129; /* #10B981 */
+    --brand-text: 244 248 252; /* #F4F8FC */
+    --brand-muted: 180 197 216; /* #B4C5D8 */
+  }
+
+  /*
+   * Customer-facing dark brand. Applied via the `.brand-dark` wrapper on
+   * customer pages ONLY — it re-maps the shadcn design tokens to the
+   * mobilitynet.io dark palette, so the shared Button/Card/Input components (and
+   * every bg-background / text-primary / bg-card / text-muted-foreground class)
+   * render dark automatically. Admin pages are never wrapped, so they keep the
+   * light `:root` tokens above.
+   */
+  .brand-dark {
+    --background: 220 51% 10%; /* #0D1628 */
+    --foreground: 210 55% 97%; /* #F4F8FC */
+
+    --card: 217 39% 19%; /* #1E2D44 */
+    --card-foreground: 210 55% 97%;
+
+    --primary: 190 100% 50%; /* #00D4FF cyan */
+    --primary-foreground: 220 51% 10%; /* dark text on cyan */
+
+    --secondary: 217 39% 19%;
+    --secondary-foreground: 210 55% 97%;
+
+    --muted: 219 41% 15%; /* #162135 */
+    --muted-foreground: 211 32% 78%; /* #B4C5D8 */
+
+    --accent: 219 41% 15%;
+    --accent-foreground: 210 55% 97%;
+
+    --destructive: 0 72% 58%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 216 25% 27%;
+    --input: 216 25% 27%;
+    --ring: 190 100% 50%;
+
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
   }
 }
 
@@ -41,5 +90,21 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "ss01", "cv01";
+  }
+}
+
+@layer utilities {
+  /* Cyan gradient text for hero keywords (mobilitynet.io accent). */
+  .text-cyan-gradient {
+    background-image: linear-gradient(90deg, #00d4ff 0%, #7af0ff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  /* Subtle glow + hairline border for dark brand cards. */
+  .brand-glow {
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+      0 24px 48px -24px rgba(0, 212, 255, 0.18);
   }
 }

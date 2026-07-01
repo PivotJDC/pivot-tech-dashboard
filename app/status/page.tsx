@@ -75,7 +75,8 @@ function StatusView() {
   }, [accountId, poll]);
 
   return (
-    <main className="container max-w-lg py-12">
+    <main className="brand-dark min-h-dvh">
+      <div className="container max-w-lg py-12">
       <div className="mb-8 text-center">
         <h1 className="font-display text-3xl font-semibold tracking-tight">
           Account status
@@ -119,6 +120,7 @@ function StatusView() {
           </div>
         </div>
       )}
+      </div>
     </main>
   );
 }

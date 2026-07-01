@@ -73,7 +73,8 @@ export default function OnboardingPage() {
   const esim = account.esim;
 
   return (
-    <main className="container max-w-2xl py-10">
+    <main className="brand-dark min-h-dvh">
+      <div className="container max-w-2xl py-10">
       <div className="mb-8 text-center">
         <p className="text-sm font-medium text-primary">You’re almost there</p>
         <h1 className="mt-1 font-display text-3xl font-semibold tracking-tight">
@@ -238,6 +239,7 @@ export default function OnboardingPage() {
           <ArrowRight className="h-4 w-4" />
         </Link>
       </Button>
+      </div>
     </main>
   );
 }

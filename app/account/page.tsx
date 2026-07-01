@@ -104,7 +104,8 @@ export default function AccountPage() {
   const lineCount = account.line_count ?? 0;
 
   return (
-    <main className="container max-w-2xl py-10">
+    <main className="brand-dark min-h-dvh">
+      <div className="container max-w-2xl py-10">
       <header className="mb-8 flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-sm font-medium text-primary">Your account</p>
@@ -280,6 +281,7 @@ export default function AccountPage() {
           <ArrowRight className="h-4 w-4" />
         </Link>
       </Button>
+      </div>
     </main>
   );
 }

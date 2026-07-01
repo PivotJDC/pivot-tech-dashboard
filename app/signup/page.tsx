@@ -233,7 +233,8 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="container flex min-h-dvh max-w-md flex-col justify-center py-10">
+    <main className="brand-dark min-h-dvh">
+      <div className="container flex min-h-dvh max-w-md flex-col justify-center py-10">
       <Button asChild variant="ghost" size="sm" className="mb-6 self-start">
         <Link href="/">
           <ArrowLeft className="h-4 w-4" />
@@ -491,6 +492,7 @@ export default function SignupPage() {
           )}
         </CardContent>
       </Card>
+      </div>
     </main>
   );
 }

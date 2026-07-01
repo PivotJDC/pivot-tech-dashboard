@@ -1,22 +1,30 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, Plus_Jakarta_Sans } from "next/font/google";
+import { Sora, DM_Sans, JetBrains_Mono } from "next/font/google";
 
 import "./globals.css";
 
-const jakarta = Plus_Jakarta_Sans({
+// Brand type system (matches mobilitynet.io): Sora for display headings,
+// DM Sans for body/UI, JetBrains Mono for code/mono.
+const sora = Sora({
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-jakarta",
+  variable: "--font-sora",
 });
 
-const fraunces = Fraunces({
+const dmSans = DM_Sans({
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-fraunces",
+  variable: "--font-dmsans",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-mono",
 });
 
 export const metadata: Metadata = {
-  title: "Pivot-Tech — $25/mo Unlimited",
+  title: "MobilityNet — $25/mo Unlimited",
   description:
     "Unlimited talk, text & data for $25/month. Powered by universal eSIM technology — works on any unlocked device.",
 };
@@ -24,7 +32,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#d97706",
+  themeColor: "#0D1628",
 };
 
 export default function RootLayout({
@@ -33,7 +41,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${jakarta.variable} ${fraunces.variable}`}>
+    <html
+      lang="en"
+      className={`${dmSans.variable} ${sora.variable} ${jetbrainsMono.variable}`}
+    >
       <body className="min-h-dvh font-sans">{children}</body>
     </html>
   );

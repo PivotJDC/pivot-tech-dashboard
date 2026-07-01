@@ -153,7 +153,8 @@ export default function ChooseNumberPage() {
   }
 
   return (
-    <main className="container flex min-h-dvh max-w-2xl flex-col py-10">
+    <main className="brand-dark min-h-dvh">
+      <div className="container flex min-h-dvh max-w-2xl flex-col py-10">
       <Button
         variant="ghost"
         size="sm"
@@ -301,6 +302,7 @@ export default function ChooseNumberPage() {
           )}
         </CardContent>
       </Card>
+      </div>
     </main>
   );
 }

@@ -62,9 +62,10 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="container flex min-h-dvh max-w-md flex-col justify-center py-10">
-      <div className="mb-8 text-center">
-        <p className="text-sm font-medium text-primary">Welcome back</p>
+    <main className="brand-dark min-h-dvh">
+      <div className="container flex min-h-dvh max-w-md flex-col justify-center py-10">
+        <div className="mb-8 text-center">
+          <p className="text-sm font-medium text-brand-cyan">Welcome back</p>
         <h1 className="mt-1 font-display text-3xl font-semibold tracking-tight">
           Sign in
         </h1>
@@ -152,12 +153,13 @@ export default function LoginPage() {
         </CardContent>
       </Card>
 
-      <p className="mt-6 text-center text-sm text-muted-foreground">
-        New to Pivot-Tech?{" "}
-        <a href="/signup" className="font-medium text-primary underline-offset-4 hover:underline">
-          Sign up
-        </a>
-      </p>
+        <p className="mt-6 text-center text-sm text-muted-foreground">
+          New to MobilityNet?{" "}
+          <a href="/signup" className="font-medium text-brand-cyan underline-offset-4 hover:underline">
+            Sign up
+          </a>
+        </p>
+      </div>
     </main>
   );
 }

@@ -14,11 +14,25 @@ const config: Config = {
     },
     extend: {
       fontFamily: {
-        // Plus Jakarta Sans for body/UI, Fraunces for display headings.
-        sans: ["var(--font-jakarta)", "system-ui", "sans-serif"],
-        display: ["var(--font-fraunces)", "Georgia", "serif"],
+        // Brand type system (mobilitynet.io): DM Sans body, Sora display,
+        // JetBrains Mono for mono.
+        sans: ["var(--font-dmsans)", "system-ui", "sans-serif"],
+        display: ["var(--font-sora)", "system-ui", "sans-serif"],
+        mono: ["var(--font-mono)", "ui-monospace", "monospace"],
       },
       colors: {
+        // mobilitynet.io brand palette (customer-page accents). RGB-channel vars
+        // so opacity modifiers work, e.g. border-brand-cyan/40.
+        brand: {
+          bg: "rgb(var(--brand-bg) / <alpha-value>)",
+          bg2: "rgb(var(--brand-bg2) / <alpha-value>)",
+          bg3: "rgb(var(--brand-bg3) / <alpha-value>)",
+          cyan: "rgb(var(--brand-cyan) / <alpha-value>)",
+          amber: "rgb(var(--brand-amber) / <alpha-value>)",
+          green: "rgb(var(--brand-green) / <alpha-value>)",
+          text: "rgb(var(--brand-text) / <alpha-value>)",
+          muted: "rgb(var(--brand-muted) / <alpha-value>)",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

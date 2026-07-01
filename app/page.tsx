@@ -31,46 +31,52 @@ const POPULAR_PLAN_ID = "unlimited_25";
 
 export default function LandingPage() {
   return (
-    <main className="relative overflow-hidden">
-      {/* Warm radial glow behind the hero. */}
+    <main className="brand-dark relative min-h-dvh overflow-hidden">
+      {/* Cyan radial glow behind the hero (mobilitynet.io accent). */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[600px] bg-[radial-gradient(60%_60%_at_50%_0%,hsl(40_96%_88%)_0%,transparent_70%)]"
+        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[600px] bg-[radial-gradient(60%_60%_at_50%_0%,rgba(0,212,255,0.16)_0%,transparent_70%)]"
       />
 
       <header className="container flex items-center justify-between py-6">
         <div className="flex items-center gap-2">
-          <Signal className="h-6 w-6 text-primary" />
-          <span className="font-display text-xl font-semibold">Pivot-Tech</span>
+          <Signal className="h-6 w-6 text-brand-cyan" />
+          <span className="font-display text-xl font-semibold tracking-tight">
+            MobilityNet
+          </span>
         </div>
         <div className="flex items-center gap-2">
-          {/* Cross-link to the MobilityNet marketing site, styled to match its
-              dark-navy / cyan-accent brand (mobilitynet.io). */}
+          {/* Cross-link back to the marketing site. */}
           <a
             href="https://mobilitynet.io"
-            className="inline-flex items-center rounded-full bg-[#0D1628] px-3.5 py-1.5 text-sm font-medium text-[#B4C5D8] transition-colors hover:text-[#00D4FF]"
+            className="hidden rounded-full border border-brand-cyan/40 px-3.5 py-1.5 text-sm font-medium text-brand-muted transition-colors hover:border-brand-cyan hover:text-brand-cyan sm:inline-flex"
           >
             MobilityNet.io
           </a>
-          <Button asChild variant="ghost" size="sm">
+          <Button
+            asChild
+            variant="ghost"
+            size="sm"
+            className="text-brand-cyan hover:bg-white/5 hover:text-brand-cyan"
+          >
             <Link href="/login">Sign in</Link>
           </Button>
-          <Button asChild variant="ghost" size="sm">
+          <Button asChild variant="ghost" size="sm" className="text-brand-muted hover:bg-white/5">
             <Link href="/status">My account</Link>
           </Button>
         </div>
       </header>
 
       <section className="container flex flex-col items-center pb-20 pt-10 text-center sm:pt-16">
-        <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-accent px-4 py-1.5 text-sm font-medium text-accent-foreground">
-          <Signal className="h-4 w-4" />
+        <span className="inline-flex items-center gap-2 rounded-full border border-brand-cyan/30 bg-white/5 px-4 py-1.5 text-sm font-medium text-brand-muted">
+          <Signal className="h-4 w-4 text-brand-cyan" />
           Powered by universal eSIM technology — works on any unlocked device
         </span>
 
         <h1 className="mt-8 max-w-3xl font-display text-5xl font-semibold leading-[1.05] tracking-tight sm:text-6xl">
-          Unlimited talk, text &amp; data.
+          <span className="text-cyan-gradient">Unlimited</span> talk, text &amp; data.
           <br />
-          <span className="text-primary">$25</span>
+          <span className="text-brand-cyan">$25</span>
           <span className="text-3xl font-medium text-muted-foreground sm:text-4xl">
             /month
           </span>
@@ -84,7 +90,7 @@ export default function LandingPage() {
         <div className="mt-9 flex w-full flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <Button asChild size="lg" className="w-full sm:w-auto">
             <Link href="/signup">
-              Sign up — $25/mo
+              Get Started — $25/mo
               <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>
@@ -94,9 +100,9 @@ export default function LandingPage() {
           {FEATURES.map(({ icon: Icon, label }) => (
             <li
               key={label}
-              className="flex items-center justify-center gap-3 rounded-xl border bg-card px-5 py-4 shadow-sm"
+              className="brand-glow flex items-center justify-center gap-3 rounded-xl border bg-card px-5 py-4"
             >
-              <Icon className="h-5 w-5 text-primary" />
+              <Icon className="h-5 w-5 text-brand-cyan" />
               <span className="font-medium">{label}</span>
             </li>
           ))}
@@ -110,7 +116,7 @@ export default function LandingPage() {
           </h2>
           <p className="mt-3 text-balance text-muted-foreground">
             Every plan includes unlimited talk &amp; text, an eSIM, and the
-            Pivot-Tech dialer. No contracts — change or cancel anytime.
+            MobilityNet dialer. No contracts — change or cancel anytime.
           </p>
         </div>
 
@@ -121,8 +127,8 @@ export default function LandingPage() {
               <Card
                 key={plan.id}
                 className={cn(
-                  "relative flex flex-col",
-                  popular && "border-primary shadow-lg ring-1 ring-primary",
+                  "brand-glow relative flex flex-col",
+                  popular && "border-brand-cyan ring-1 ring-brand-cyan/60",
                 )}
               >
                 {popular && (
@@ -147,7 +153,7 @@ export default function LandingPage() {
                   <ul className="space-y-3 text-sm">
                     {plan.features.map((feature) => (
                       <li key={feature} className="flex items-start gap-2">
-                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-brand-cyan" />
                         <span>{feature}</span>
                       </li>
                     ))}
@@ -171,14 +177,14 @@ export default function LandingPage() {
 
         {/* Family Plan — multiple lines under one account. */}
         <div className="mx-auto mt-6 max-w-5xl">
-          <Card className="border-primary/30 bg-accent/30">
+          <Card className="brand-glow border-brand-cyan/30 bg-white/[0.03]">
             <CardContent className="flex flex-col items-start gap-5 py-6 md:flex-row md:items-center md:justify-between">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <Users className="h-5 w-5 text-primary" />
+                  <Users className="h-5 w-5 text-brand-cyan" />
                   <h3 className="font-display text-xl font-semibold">Family Plan</h3>
                 </div>
-                <p className="text-sm font-medium text-primary">
+                <p className="text-sm font-medium text-brand-cyan">
                   Multiple lines, one bill
                 </p>
                 <p className="max-w-xl text-sm text-muted-foreground">
