@@ -10,11 +10,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { HistoryTable } from "@/components/history-table";
+import { UsageStatsView } from "@/components/usage-stats";
 import {
   clearAccount, getAccount, saveAccount, setAddLine,
 } from "@/lib/session";
 import {
-  getAccountStatus, getAccountHistory, type Account, type CallRecord, type MessageRecord,
+  getAccountStatus,
+  getAccountHistory,
+  getAccountUsage,
+  type Account,
+  type CallRecord,
+  type MessageRecord,
+  type UsageStats,
 } from "@/lib/api";
 import { planById } from "@/lib/plans";
 import { formatPhone } from "@/lib/format";
@@ -35,6 +42,7 @@ export default function AccountPage() {
   const [liveStatus, setLiveStatus] = useState<string | null>(null);
   const [calls, setCalls] = useState<CallRecord[]>([]);
   const [messages, setMessages] = useState<MessageRecord[]>([]);
+  const [usage, setUsage] = useState<UsageStats | null>(null);
 
   useEffect(() => {
     const a = getAccount();
@@ -66,6 +74,11 @@ export default function AccountPage() {
         setCalls(h.calls ?? []);
         setMessages(h.messages ?? []);
       })
+      .catch(() => {});
+
+    // Usage stats (best-effort).
+    getAccountUsage(a.id)
+      .then(setUsage)
       .catch(() => {});
   }, [router]);
 
@@ -230,6 +243,21 @@ export default function AccountPage() {
               </p>
             </div>
           </Section>
+        )}
+
+        {/* Usage this period. */}
+        {usage && (
+          <Card>
+            <CardContent className="space-y-4 py-6">
+              <div className="text-center">
+                <p className="font-semibold">Usage This Period</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Your data, calls, and messages this month.
+                </p>
+              </div>
+              <UsageStatsView stats={usage} />
+            </CardContent>
+          </Card>
         )}
 
         {/* Call & message history. */}

@@ -11,6 +11,7 @@ import {
   type Account,
   type ProvisioningLinks,
   type AccountHistory,
+  type UsageStats,
 } from "./api";
 import { getAdminToken } from "./admin-auth";
 
@@ -198,6 +199,11 @@ export function getAccountHistory(
   return adminRequest<AccountHistory>(
     `/admin/accounts/${encodeURIComponent(id)}/history${qs(filters)}`,
   );
+}
+
+/** GET /admin/accounts/:id/usage — usage stats for this period. */
+export function getAccountUsage(id: string) {
+  return adminRequest<UsageStats>(`/admin/accounts/${encodeURIComponent(id)}/usage`);
 }
 
 export function reissueProvisioning(id: string) {

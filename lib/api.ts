@@ -250,6 +250,19 @@ export function getAccountHistory(
   );
 }
 
+export interface UsageStats {
+  data_used_mb: number;
+  data_cap_mb: number;
+  voice_minutes: number;
+  sms_count: number;
+  mms_count: number;
+}
+
+/** GET /v1/accounts/:id/usage — usage stats for this period (owner JWT). */
+export function getAccountUsage(id: string): Promise<UsageStats> {
+  return request<UsageStats>(`/v1/accounts/${encodeURIComponent(id)}/usage`);
+}
+
 /**
  * POST /v1/auth/send-code — request a passwordless login code for an email.
  * Always resolves { sent: true } regardless of whether the email has an account.
