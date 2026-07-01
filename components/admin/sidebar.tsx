@@ -9,6 +9,7 @@ import {
   Hash,
   ArrowLeftRight,
   Receipt,
+  Building2,
   UserCog,
   LogOut,
   Signal,
@@ -30,6 +31,7 @@ const NAV: NavItem[] = [
 
 // super_admin-only nav entries, appended once the role is known.
 const SUPER_ADMIN_NAV: NavItem[] = [
+  { href: "/admin/tenants", label: "Tenants", icon: Building2 },
   { href: "/admin/users", label: "Users", icon: UserCog },
 ];
 

@@ -354,6 +354,80 @@ export function deleteAdminUser(id: string) {
   );
 }
 
+// --- Tenants (MVNE, super_admin) -----------------------------------------
+
+export type TenantStatus = "onboarding" | "active" | "suspended" | "cancelled";
+
+export interface Tenant {
+  id: string;
+  slug: string;
+  name: string;
+  domain?: string | null;
+  acrobits_cloud_id?: string | null;
+  brand_config?: Record<string, unknown>;
+  plans?: unknown[];
+  bics_sim_range?: string[];
+  telnyx_credential_conn_id?: string | null;
+  roaming_profile_id?: string | null;
+  billing_config?: Record<string, unknown>;
+  status: TenantStatus;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface TenantInput {
+  slug: string;
+  name: string;
+  domain?: string;
+  acrobits_cloud_id?: string;
+  roaming_profile_id?: string;
+  billing_config?: Record<string, unknown>;
+}
+
+/** GET /admin/tenants — list tenants (super_admin). */
+export function listTenants(
+  filters: { status?: string; limit?: number; offset?: number } = {},
+) {
+  return adminRequest<{ tenants: Tenant[]; pagination: Pagination }>(
+    `/admin/tenants${qs(filters)}`,
+  );
+}
+
+/** POST /admin/tenants — create a tenant. */
+export function createTenant(input: TenantInput) {
+  return adminRequest<Tenant>("/admin/tenants", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+/** GET /admin/tenants/:id — tenant detail. */
+export function getTenant(id: string) {
+  return adminRequest<Tenant>(`/admin/tenants/${encodeURIComponent(id)}`);
+}
+
+/** PATCH /admin/tenants/:id — update mutable tenant fields. */
+export function updateTenant(id: string, updates: Partial<Tenant>) {
+  return adminRequest<Tenant>(`/admin/tenants/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(updates),
+  });
+}
+
+/** POST /admin/tenants/:id/suspend. */
+export function suspendTenant(id: string) {
+  return adminRequest<Tenant>(`/admin/tenants/${encodeURIComponent(id)}/suspend`, {
+    method: "POST",
+  });
+}
+
+/** POST /admin/tenants/:id/activate. */
+export function activateTenant(id: string) {
+  return adminRequest<Tenant>(`/admin/tenants/${encodeURIComponent(id)}/activate`, {
+    method: "POST",
+  });
+}
+
 export function listDids(
   filters: {
     market?: string;
