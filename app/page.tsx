@@ -43,11 +43,15 @@ export default function LandingPage() {
           <Signal className="h-6 w-6 text-primary" />
           <span className="font-display text-xl font-semibold">Pivot-Tech</span>
         </div>
-        <div className="flex items-center gap-1">
-          <Button asChild variant="ghost" size="sm">
-            {/* Cross-link to the MobilityNet marketing site. */}
-            <a href="https://mobilitynet.io">Go to MobilityNet</a>
-          </Button>
+        <div className="flex items-center gap-2">
+          {/* Cross-link to the MobilityNet marketing site, styled to match its
+              dark-navy / cyan-accent brand (mobilitynet.io). */}
+          <a
+            href="https://mobilitynet.io"
+            className="inline-flex items-center rounded-full bg-[#0D1628] px-3.5 py-1.5 text-sm font-medium text-[#B4C5D8] transition-colors hover:text-[#00D4FF]"
+          >
+            MobilityNet.io
+          </a>
           <Button asChild variant="ghost" size="sm">
             <Link href="/login">Sign in</Link>
           </Button>
