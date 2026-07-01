@@ -202,6 +202,28 @@ export function getUsageDistribution() {
   return adminRequest<UsageBucket[]>("/admin/analytics/usage-distribution");
 }
 
+export interface HourlyDataVoice {
+  hour: number;
+  voice_minutes: number;
+  call_count: number;
+}
+
+export interface HourlyMessages {
+  hour: number;
+  sent: number;
+  received: number;
+}
+
+/** GET /admin/analytics/hourly-data-voice — voice minutes + call volume by hour. */
+export function getHourlyDataVoice() {
+  return adminRequest<HourlyDataVoice[]>("/admin/analytics/hourly-data-voice");
+}
+
+/** GET /admin/analytics/hourly-messages — sent/received message volume by hour. */
+export function getHourlyMessages() {
+  return adminRequest<HourlyMessages[]>("/admin/analytics/hourly-messages");
+}
+
 export function listAccounts(filters: AccountFilters = {}) {
   return adminRequest<{ accounts: AdminAccount[]; pagination: Pagination }>(
     `/admin/accounts${qs(filters)}`,
@@ -278,6 +300,22 @@ export function createAdminUser(input: {
     method: "POST",
     body: JSON.stringify(input),
   });
+}
+
+/** PATCH /admin/users/:id — change an admin user's role (super_admin only). */
+export function updateAdminUser(id: string, input: { role: string }) {
+  return adminRequest<AdminUser>(`/admin/users/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+/** DELETE /admin/users/:id — delete an admin user (super_admin only). */
+export function deleteAdminUser(id: string) {
+  return adminRequest<{ deleted: boolean; id: string }>(
+    `/admin/users/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+  );
 }
 
 export function listDids(

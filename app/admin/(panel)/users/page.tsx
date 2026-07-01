@@ -1,17 +1,24 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, UserPlus } from "lucide-react";
+import { Loader2, UserPlus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { StatusBadge } from "@/components/admin/status-badge";
 import { useAdminFetch } from "@/components/admin/use-admin-fetch";
-import { listAdminUsers, createAdminUser } from "@/lib/admin-api";
-import { getAdminRole } from "@/lib/admin-auth";
+import {
+  listAdminUsers,
+  createAdminUser,
+  updateAdminUser,
+  deleteAdminUser,
+  type AdminUser,
+} from "@/lib/admin-api";
+import { getAdminRole, getAdminUsername } from "@/lib/admin-auth";
 import { ApiError } from "@/lib/api";
 import { formatDate } from "@/lib/format";
+
+const ROLE_OPTIONS = ["super_admin", "admin", "viewer"];
 
 export default function UsersPage() {
   // Role is client-only; resolve after mount. `undefined` = still checking.
@@ -40,6 +47,9 @@ function UsersPanel() {
   const fetcher = useCallback(() => listAdminUsers(), []);
   const { data, loading, error, reload } = useAdminFetch(fetcher, []);
   const [showForm, setShowForm] = useState(false);
+  // The logged-in admin's username, to disable self-targeted actions.
+  const [me, setMe] = useState<string | null>(null);
+  useEffect(() => setMe(getAdminUsername()), []);
 
   const users = data?.users ?? [];
 
@@ -75,44 +85,119 @@ function UsersPanel() {
               <Th>Role</Th>
               <Th>Created</Th>
               <Th>Last login</Th>
+              <Th>Actions</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {loading ? (
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
+                <td colSpan={6} className="px-4 py-10 text-center text-slate-500">
                   <Loader2 className="mx-auto h-5 w-5 animate-spin" />
                 </td>
               </tr>
             ) : error ? (
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-red-600">
+                <td colSpan={6} className="px-4 py-10 text-center text-red-600">
                   {error}
                 </td>
               </tr>
             ) : users.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
+                <td colSpan={6} className="px-4 py-10 text-center text-slate-500">
                   No admin users yet.
                 </td>
               </tr>
             ) : (
               users.map((u) => (
-                <tr key={u.id}>
-                  <Td className="font-medium text-slate-900">{u.username}</Td>
-                  <Td>{u.email}</Td>
-                  <Td>
-                    <StatusBadge status={u.role} />
-                  </Td>
-                  <Td className="text-slate-500">{formatDate(u.created_at)}</Td>
-                  <Td className="text-slate-500">{formatDate(u.last_login_at)}</Td>
-                </tr>
+                <UserRow key={u.id} user={u} isSelf={u.username === me} onChanged={reload} />
               ))
             )}
           </tbody>
         </table>
       </div>
     </div>
+  );
+}
+
+function UserRow({
+  user,
+  isSelf,
+  onChanged,
+}: {
+  user: AdminUser;
+  isSelf: boolean;
+  onChanged: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function changeRole(role: string) {
+    if (role === user.role) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await updateAdminUser(user.id, { role });
+      onChanged();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to update role.");
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    // eslint-disable-next-line no-alert
+    if (!window.confirm(`Delete admin user "${user.username}"? This cannot be undone.`)) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await deleteAdminUser(user.id);
+      onChanged();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to delete user.");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <tr>
+      <Td className="font-medium text-slate-900">{user.username}</Td>
+      <Td>{user.email}</Td>
+      <Td>
+        <select
+          value={user.role}
+          disabled={isSelf || busy}
+          onChange={(e) => changeRole(e.target.value)}
+          aria-label={`Role for ${user.username}`}
+          className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm capitalize focus:outline-none focus:ring-2 focus:ring-slate-400 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {ROLE_OPTIONS.map((r) => (
+            <option key={r} value={r}>
+              {r.replace(/_/g, " ")}
+            </option>
+          ))}
+        </select>
+      </Td>
+      <Td className="text-slate-500">{formatDate(user.created_at)}</Td>
+      <Td className="text-slate-500">{formatDate(user.last_login_at)}</Td>
+      <Td>
+        {isSelf ? (
+          <span className="text-xs text-slate-400">You</span>
+        ) : (
+          <button
+            type="button"
+            onClick={remove}
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 rounded-md border border-red-200 px-2.5 py-1 text-sm font-medium text-red-700 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+            Delete
+          </button>
+        )}
+        {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      </Td>
+    </tr>
   );
 }
 

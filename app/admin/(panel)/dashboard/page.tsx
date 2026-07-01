@@ -8,6 +8,8 @@ import {
 import { MetricCard } from "@/components/admin/metric-card";
 import { HourlyActivityChart } from "@/components/admin/hourly-activity-chart";
 import { UsageDistributionChart } from "@/components/admin/usage-distribution-chart";
+import { DataVoiceChart } from "@/components/admin/data-voice-chart";
+import { MessageVolumeChart } from "@/components/admin/message-volume-chart";
 import { useAdminFetch } from "@/components/admin/use-admin-fetch";
 import { getMetrics } from "@/lib/admin-api";
 import { DEFAULT_PLAN } from "@/lib/plans";
@@ -64,10 +66,13 @@ export default function DashboardPage() {
         </div>
       ) : null}
 
-      {/* Analytics charts — self-fetching, independent of the metric cards. */}
+      {/* Analytics charts — self-fetching, independent of the metric cards.
+          2x2 grid: activity + usage on top, data/voice + messages below. */}
       <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <HourlyActivityChart />
         <UsageDistributionChart />
+        <DataVoiceChart />
+        <MessageVolumeChart />
       </div>
     </div>
   );

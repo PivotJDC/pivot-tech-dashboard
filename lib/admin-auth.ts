@@ -13,6 +13,7 @@
  */
 const TOKEN_KEY = "pivot.admin.token";
 const ROLE_KEY = "pivot.admin.role";
+const USERNAME_KEY = "pivot.admin.username";
 
 /** Persist the token (trimmed) so the Bearer sent to the API is clean. */
 export function saveAdminToken(token: string) {
@@ -42,9 +43,22 @@ export function getAdminRole(): string | null {
   return window.sessionStorage.getItem(ROLE_KEY);
 }
 
+/** Persist the logged-in admin's username (to identify "self" in the UI). */
+export function saveAdminUsername(username: string) {
+  if (typeof window !== "undefined") {
+    window.sessionStorage.setItem(USERNAME_KEY, username);
+  }
+}
+
+export function getAdminUsername(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.sessionStorage.getItem(USERNAME_KEY);
+}
+
 export function clearAdminToken() {
   if (typeof window !== "undefined") {
     window.sessionStorage.removeItem(TOKEN_KEY);
     window.sessionStorage.removeItem(ROLE_KEY);
+    window.sessionStorage.removeItem(USERNAME_KEY);
   }
 }
