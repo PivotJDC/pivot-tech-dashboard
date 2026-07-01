@@ -10,6 +10,7 @@ import { HourlyActivityChart } from "@/components/admin/hourly-activity-chart";
 import { UsageDistributionChart } from "@/components/admin/usage-distribution-chart";
 import { DataVoiceChart } from "@/components/admin/data-voice-chart";
 import { MessageVolumeChart } from "@/components/admin/message-volume-chart";
+import { UsageTrendsChart } from "@/components/admin/usage-trends-chart";
 import { useAdminFetch } from "@/components/admin/use-admin-fetch";
 import { getMetrics } from "@/lib/admin-api";
 import { DEFAULT_PLAN } from "@/lib/plans";
@@ -73,6 +74,11 @@ export default function DashboardPage() {
         <UsageDistributionChart />
         <DataVoiceChart />
         <MessageVolumeChart />
+      </div>
+
+      {/* Full-width usage trend with a day/week/month toggle. */}
+      <div className="mt-4">
+        <UsageTrendsChart />
       </div>
     </div>
   );

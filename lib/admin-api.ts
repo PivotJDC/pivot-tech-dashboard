@@ -224,6 +224,20 @@ export function getHourlyMessages() {
   return adminRequest<HourlyMessages[]>("/admin/analytics/hourly-messages");
 }
 
+export type TrendPeriod = "day" | "week" | "month";
+
+export interface UsageTrendPoint {
+  label: string;
+  total_mb: number;
+}
+
+/** GET /admin/analytics/usage-trends — total data usage over time. */
+export function getUsageTrends(period: TrendPeriod = "day") {
+  return adminRequest<UsageTrendPoint[]>(
+    `/admin/analytics/usage-trends?period=${period}`,
+  );
+}
+
 export function listAccounts(filters: AccountFilters = {}) {
   return adminRequest<{ accounts: AdminAccount[]; pagination: Pagination }>(
     `/admin/accounts${qs(filters)}`,
