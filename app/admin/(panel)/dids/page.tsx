@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback } from "react";
-import { Loader2 } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Loader2, Search } from "lucide-react";
 
 import { StatusBadge } from "@/components/admin/status-badge";
 import { useAdminFetch } from "@/components/admin/use-admin-fetch";
@@ -12,8 +12,20 @@ import { formatPhone } from "@/lib/format";
 const FETCH_LIMIT = 100;
 
 export default function DidsPage() {
-  const fetcher = useCallback(() => listDids({ limit: FETCH_LIMIT }), []);
-  const { data, loading, error } = useAdminFetch(fetcher, []);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+
+  // Debounce the search box so we don't fire a request per keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput.trim()), 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  const fetcher = useCallback(
+    () => listDids({ search, limit: FETCH_LIMIT }),
+    [search],
+  );
+  const { data, loading, error } = useAdminFetch(fetcher, [search]);
 
   const dids = data?.dids ?? [];
   const total = data?.pagination.total ?? 0;
@@ -26,6 +38,20 @@ export default function DidsPage() {
         <p className="text-sm text-slate-500">{total.toLocaleString()} numbers</p>
       </header>
 
+      <div className="mb-4">
+        <div className="relative w-64">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            type="search"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search by phone number…"
+            aria-label="Search DIDs by phone number"
+            className="w-full rounded-md border border-slate-300 bg-white py-1.5 pl-8 pr-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+          />
+        </div>
+      </div>
+
       {loading ? (
         <div className="flex items-center gap-2 py-16 text-slate-500">
           <Loader2 className="h-5 w-5 animate-spin" />
@@ -37,7 +63,7 @@ export default function DidsPage() {
         </p>
       ) : dids.length === 0 ? (
         <p className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500">
-          No DIDs in inventory yet.
+          {search ? "No DIDs match that number." : "No DIDs in inventory yet."}
         </p>
       ) : (
         <div className="space-y-8">

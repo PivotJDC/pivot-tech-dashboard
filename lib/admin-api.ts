@@ -254,7 +254,13 @@ export function createAdminUser(input: {
 }
 
 export function listDids(
-  filters: { market?: string; status?: string; limit?: number; offset?: number } = {},
+  filters: {
+    market?: string;
+    status?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  } = {},
 ) {
   return adminRequest<{ dids: Did[]; pagination: Pagination }>(
     `/admin/dids${qs(filters)}`,

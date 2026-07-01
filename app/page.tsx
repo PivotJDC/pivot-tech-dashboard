@@ -45,6 +45,10 @@ export default function LandingPage() {
         </div>
         <div className="flex items-center gap-1">
           <Button asChild variant="ghost" size="sm">
+            {/* Cross-link to the MobilityNet marketing site. */}
+            <a href="https://mobilitynet.io">Go to MobilityNet</a>
+          </Button>
+          <Button asChild variant="ghost" size="sm">
             <Link href="/login">Sign in</Link>
           </Button>
           <Button asChild variant="ghost" size="sm">
