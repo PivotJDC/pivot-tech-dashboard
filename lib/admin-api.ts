@@ -238,6 +238,28 @@ export function getUsageTrends(period: TrendPeriod = "day") {
   );
 }
 
+export interface BillingReconciliation {
+  period: { from: string; to: string };
+  telnyx: {
+    voice_minutes: number;
+    voice_calls: number;
+    sms_count: number;
+    mms_count: number;
+  };
+  bics: {
+    data_total_mb: number;
+    data_total_gb: number;
+    estimated_cost: number;
+  };
+}
+
+/** GET /admin/analytics/billing-reconciliation — Telnyx vs BICS for a range. */
+export function getBillingReconciliation(from: string, to: string) {
+  return adminRequest<BillingReconciliation>(
+    `/admin/analytics/billing-reconciliation${qs({ from, to })}`,
+  );
+}
+
 export function listAccounts(filters: AccountFilters = {}) {
   return adminRequest<{ accounts: AdminAccount[]; pagination: Pagination }>(
     `/admin/accounts${qs(filters)}`,
