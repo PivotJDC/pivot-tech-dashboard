@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,10 +51,18 @@ function TenantsPanel() {
           <h1 className="font-display text-2xl font-semibold">Tenants</h1>
           <p className="text-sm text-slate-500">{tenants.length} total</p>
         </div>
-        <Button onClick={() => setShowForm((v) => !v)}>
-          <Plus className="h-4 w-4" />
-          Add Tenant
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowForm((v) => !v)}>
+            <Plus className="h-4 w-4" />
+            Add Tenant
+          </Button>
+          <Button asChild>
+            <Link href="/admin/tenants/onboard">
+              <Sparkles className="h-4 w-4" />
+              Onboard New Tenant
+            </Link>
+          </Button>
+        </div>
       </header>
 
       {showForm && (
