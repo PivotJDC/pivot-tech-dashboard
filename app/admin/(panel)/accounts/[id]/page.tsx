@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -20,6 +20,7 @@ import {
   getAccountUsage,
   getEsimQr,
   getAccountVoicemails,
+  getVoicemailRecordingUrl,
   markVoicemailRead,
   deleteVoicemail,
   reissueProvisioning,
@@ -220,9 +221,22 @@ function VoicemailsSection({ accountId }: { accountId: string }) {
   const { data, loading, error, reload } = useAdminFetch(fetcher, [accountId]);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [recordingUrls, setRecordingUrls] = useState<Record<string, string>>({});
 
-  const voicemails = data?.voicemails ?? [];
+  const voicemails = useMemo(() => data?.voicemails ?? [], [data]);
   const unread = voicemails.filter((v) => !v.is_read).length;
+
+  // recording_url is an S3 reference — fetch a fresh signed URL per voicemail
+  // for the <audio> src (the element can't send the admin auth header).
+  useEffect(() => {
+    voicemails
+      .filter((v) => v.recording_url && !recordingUrls[v.id])
+      .forEach((v) => {
+        getVoicemailRecordingUrl(v.id)
+          .then(({ url }) => setRecordingUrls((m) => ({ ...m, [v.id]: url })))
+          .catch(() => {});
+      });
+  }, [voicemails, recordingUrls]);
 
   async function run(id: string, fn: () => Promise<unknown>) {
     setBusyId(id);
@@ -273,6 +287,7 @@ function VoicemailsSection({ accountId }: { accountId: string }) {
             <VoicemailRow
               key={vm.id}
               vm={vm}
+              recordingUrl={recordingUrls[vm.id]}
               busy={busyId === vm.id}
               onMarkRead={() => run(vm.id, () => markVoicemailRead(vm.id))}
               onDelete={() => remove(vm.id)}
@@ -288,11 +303,13 @@ function VoicemailsSection({ accountId }: { accountId: string }) {
 
 function VoicemailRow({
   vm,
+  recordingUrl,
   busy,
   onMarkRead,
   onDelete,
 }: {
   vm: Voicemail;
+  recordingUrl?: string;
   busy: boolean;
   onMarkRead: () => void;
   onDelete: () => void;
@@ -325,11 +342,11 @@ function VoicemailRow({
           {preview && (
             <p className="mt-2 text-sm italic text-slate-600">&ldquo;{preview}&rdquo;</p>
           )}
-          {vm.recording_url && (
+          {recordingUrl && (
             <audio
               controls
               preload="none"
-              src={vm.recording_url}
+              src={recordingUrl}
               className="mt-3 h-9 w-full max-w-md"
             >
               <track kind="captions" />

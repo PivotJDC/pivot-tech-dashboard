@@ -293,6 +293,17 @@ export function getMyVoicemails(): Promise<{ voicemails: Voicemail[]; unread: nu
   return request<{ voicemails: Voicemail[]; unread: number }>("/v1/account/voicemails");
 }
 
+/**
+ * GET /v1/account/voicemails/:id/recording?format=json — a fresh signed URL for
+ * the recording (owner JWT). The <audio> element can't send the auth header, so
+ * we fetch the signed S3 URL here and set it as the audio src.
+ */
+export function getVoicemailRecordingUrl(id: string): Promise<{ url: string }> {
+  return request<{ url: string }>(
+    `/v1/account/voicemails/${encodeURIComponent(id)}/recording?format=json`,
+  );
+}
+
 /** PATCH /v1/account/voicemails/:id/read — mark one read (owner JWT). */
 export function markVoicemailRead(id: string): Promise<Voicemail> {
   return request<Voicemail>(`/v1/account/voicemails/${encodeURIComponent(id)}/read`, {

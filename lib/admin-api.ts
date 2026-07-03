@@ -327,6 +327,17 @@ export function getAccountVoicemails(id: string) {
   );
 }
 
+/**
+ * GET /admin/voicemails/:id/recording?format=json — a fresh signed URL for the
+ * recording. The <audio> element can't send the admin auth header, so we fetch
+ * the signed S3 URL here and set it as the audio src.
+ */
+export function getVoicemailRecordingUrl(id: string) {
+  return adminRequest<{ url: string }>(
+    `/admin/voicemails/${encodeURIComponent(id)}/recording?format=json`,
+  );
+}
+
 /** PATCH /admin/voicemails/:id/read — mark a voicemail read. */
 export function markVoicemailRead(id: string) {
   return adminRequest<Voicemail>(`/admin/voicemails/${encodeURIComponent(id)}/read`, {

@@ -21,6 +21,7 @@ import {
   getAccountHistory,
   getAccountUsage,
   getMyVoicemails,
+  getVoicemailRecordingUrl,
   markVoicemailRead,
   deleteVoicemail,
   ApiError,
@@ -303,13 +304,26 @@ function formatDuration(seconds: number): string {
 
 function VoicemailsSection({ accountId }: { accountId: string }) {
   const [voicemails, setVoicemails] = useState<Voicemail[]>([]);
+  const [recordingUrls, setRecordingUrls] = useState<Record<string, string>>({});
   const [loaded, setLoaded] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     getMyVoicemails()
-      .then((r) => setVoicemails(r.voicemails ?? []))
+      .then((r) => {
+        const vms = r.voicemails ?? [];
+        setVoicemails(vms);
+        // recording_url is now an S3 reference, not directly playable — fetch a
+        // fresh signed URL per voicemail for the <audio> src (best-effort).
+        vms
+          .filter((v) => v.recording_url)
+          .forEach((v) => {
+            getVoicemailRecordingUrl(v.id)
+              .then(({ url }) => setRecordingUrls((m) => ({ ...m, [v.id]: url })))
+              .catch(() => {});
+          });
+      })
       .catch(() => {})
       .finally(() => setLoaded(true));
   }, []);
@@ -390,11 +404,11 @@ function VoicemailsSection({ accountId }: { accountId: string }) {
                     <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
                       {formatDate(vm.created_at)} · {formatDuration(vm.duration_seconds)}
                     </p>
-                    {vm.recording_url && (
+                    {recordingUrls[vm.id] && (
                       <audio
                         controls
                         preload="none"
-                        src={vm.recording_url}
+                        src={recordingUrls[vm.id]}
                         className="mt-3 h-9 w-full max-w-sm"
                       >
                         <track kind="captions" />
