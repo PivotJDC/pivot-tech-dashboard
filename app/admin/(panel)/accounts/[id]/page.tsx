@@ -3,7 +3,9 @@
 import { useCallback, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Loader2, RefreshCw, RotateCcw, Ban } from "lucide-react";
+import {
+  ArrowLeft, Loader2, RefreshCw, RotateCcw, Ban, Check, Trash2, Voicemail as VoicemailIcon,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,11 +19,15 @@ import {
   getAccountHistory,
   getAccountUsage,
   getEsimQr,
+  getAccountVoicemails,
+  markVoicemailRead,
+  deleteVoicemail,
   reissueProvisioning,
   setAccountStatus,
   accountAction,
   type AdminAccount,
   type EsimQr,
+  type Voicemail,
 } from "@/lib/admin-api";
 import { ApiError, type ProvisioningLinks } from "@/lib/api";
 import { planById } from "@/lib/plans";
@@ -124,6 +130,7 @@ function AccountDetail({
       </div>
 
       <UsageSection accountId={account.id} />
+      <VoicemailsSection accountId={account.id} />
       <HistorySection accountId={account.id} />
     </div>
   );
@@ -200,6 +207,156 @@ function EsimQrSection({ account }: { account: AdminAccount }) {
         </div>
       </div>
     </section>
+  );
+}
+
+function formatDuration(seconds: number): string {
+  const s = Math.max(0, Math.round(seconds || 0));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+function VoicemailsSection({ accountId }: { accountId: string }) {
+  const fetcher = useCallback(() => getAccountVoicemails(accountId), [accountId]);
+  const { data, loading, error, reload } = useAdminFetch(fetcher, [accountId]);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const voicemails = data?.voicemails ?? [];
+  const unread = voicemails.filter((v) => !v.is_read).length;
+
+  async function run(id: string, fn: () => Promise<unknown>) {
+    setBusyId(id);
+    setActionError(null);
+    try {
+      await fn();
+      reload();
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : "Action failed.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  function remove(id: string) {
+    if (!window.confirm("Delete this voicemail? This cannot be undone.")) return;
+    run(id, () => deleteVoicemail(id));
+  }
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <header className="mb-4 flex items-center justify-between">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+          Voicemails
+        </h2>
+        {unread > 0 && (
+          <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+            {unread} unread
+          </span>
+        )}
+      </header>
+
+      {loading ? (
+        <div className="flex items-center gap-2 py-6 text-slate-500">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading voicemails…
+        </div>
+      ) : error ? (
+        <p className="text-sm text-red-600">{error}</p>
+      ) : voicemails.length === 0 ? (
+        <div className="flex items-center gap-2 py-6 text-sm text-slate-400">
+          <VoicemailIcon className="h-4 w-4" />
+          No voicemails.
+        </div>
+      ) : (
+        <ul className="space-y-3">
+          {voicemails.map((vm) => (
+            <VoicemailRow
+              key={vm.id}
+              vm={vm}
+              busy={busyId === vm.id}
+              onMarkRead={() => run(vm.id, () => markVoicemailRead(vm.id))}
+              onDelete={() => remove(vm.id)}
+            />
+          ))}
+        </ul>
+      )}
+
+      {actionError && <p className="mt-3 text-sm font-medium text-red-600">{actionError}</p>}
+    </section>
+  );
+}
+
+function VoicemailRow({
+  vm,
+  busy,
+  onMarkRead,
+  onDelete,
+}: {
+  vm: Voicemail;
+  busy: boolean;
+  onMarkRead: () => void;
+  onDelete: () => void;
+}) {
+  const preview = vm.transcription && vm.transcription.length > 160
+    ? `${vm.transcription.slice(0, 160)}…`
+    : vm.transcription;
+
+  return (
+    <li className="rounded-lg border border-slate-200 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-slate-900">
+              {vm.caller_name || formatPhone(vm.caller_number)}
+            </span>
+            {vm.is_read ? (
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
+                Read
+              </span>
+            ) : (
+              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                Unread
+              </span>
+            )}
+          </div>
+          <p className="mt-0.5 text-xs tabular-nums text-slate-500">
+            {formatDate(vm.created_at)} · {formatDuration(vm.duration_seconds)}
+          </p>
+          {preview && (
+            <p className="mt-2 text-sm italic text-slate-600">&ldquo;{preview}&rdquo;</p>
+          )}
+          {vm.recording_url && (
+            <audio
+              controls
+              preload="none"
+              src={vm.recording_url}
+              className="mt-3 h-9 w-full max-w-md"
+            >
+              <track kind="captions" />
+            </audio>
+          )}
+        </div>
+
+        <div className="flex shrink-0 gap-2">
+          {!vm.is_read && (
+            <Button size="sm" variant="outline" onClick={onMarkRead} disabled={busy}>
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+              Mark read
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-red-200 text-red-700 hover:bg-red-50"
+            onClick={onDelete}
+            disabled={busy}
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete
+          </Button>
+        </div>
+      </div>
+    </li>
   );
 }
 

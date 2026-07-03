@@ -115,6 +115,17 @@ export interface EsimQr {
   sm_dp_address: string | null;
 }
 
+export interface Voicemail {
+  id: string;
+  caller_number: string;
+  caller_name?: string | null;
+  duration_seconds: number;
+  recording_url?: string | null;
+  transcription?: string | null;
+  is_read: boolean;
+  created_at: string;
+}
+
 /** Account actions backed by PATCH /admin/accounts/:id { action }. */
 export type AccountAction = "retry_bics" | "activate" | "suspend" | "cancel";
 
@@ -307,6 +318,28 @@ export function getEsimQr(id: string, regenerate = false) {
     method: "POST",
     body: JSON.stringify({ regenerate }),
   });
+}
+
+/** GET /admin/accounts/:id/voicemails — voicemails for an account. */
+export function getAccountVoicemails(id: string) {
+  return adminRequest<{ voicemails: Voicemail[] }>(
+    `/admin/accounts/${encodeURIComponent(id)}/voicemails`,
+  );
+}
+
+/** PATCH /admin/voicemails/:id/read — mark a voicemail read. */
+export function markVoicemailRead(id: string) {
+  return adminRequest<Voicemail>(`/admin/voicemails/${encodeURIComponent(id)}/read`, {
+    method: "PATCH",
+  });
+}
+
+/** DELETE /admin/voicemails/:id — delete a voicemail. */
+export function deleteVoicemail(id: string) {
+  return adminRequest<{ deleted: boolean; id: string }>(
+    `/admin/voicemails/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+  );
 }
 
 export function reissueProvisioning(id: string) {
