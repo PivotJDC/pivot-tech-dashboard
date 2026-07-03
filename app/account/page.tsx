@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Info, LogOut, Smartphone, Users } from "lucide-react";
+import {
+  ArrowRight, Info, LogOut, Smartphone, Users, Check, Trash2, Voicemail as VoicemailIcon,
+} from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 
 import { Button } from "@/components/ui/button";
@@ -18,13 +20,18 @@ import {
   getAccountStatus,
   getAccountHistory,
   getAccountUsage,
+  getMyVoicemails,
+  markVoicemailRead,
+  deleteVoicemail,
+  ApiError,
   type Account,
   type CallRecord,
   type MessageRecord,
   type UsageStats,
+  type Voicemail,
 } from "@/lib/api";
 import { planById } from "@/lib/plans";
-import { formatPhone } from "@/lib/format";
+import { formatPhone, formatDate } from "@/lib/format";
 
 /**
  * Customer account page.
@@ -273,6 +280,9 @@ export default function AccountPage() {
             <HistoryTable calls={calls} messages={messages} />
           </CardContent>
         </Card>
+
+        {/* Voicemails. */}
+        <VoicemailsSection accountId={account.id} />
       </div>
 
       <Button asChild size="lg" variant="outline" className="mt-8 w-full">
@@ -283,6 +293,145 @@ export default function AccountPage() {
       </Button>
       </div>
     </main>
+  );
+}
+
+function formatDuration(seconds: number): string {
+  const s = Math.max(0, Math.round(seconds || 0));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+function VoicemailsSection({ accountId }: { accountId: string }) {
+  const [voicemails, setVoicemails] = useState<Voicemail[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    getMyVoicemails()
+      .then((r) => setVoicemails(r.voicemails ?? []))
+      .catch(() => {})
+      .finally(() => setLoaded(true));
+  }, []);
+
+  // accountId is unused directly (the endpoint derives the account from the
+  // token) but scopes the effect to the signed-in account.
+  useEffect(() => {
+    load();
+  }, [load, accountId]);
+
+  const unread = voicemails.filter((v) => !v.is_read).length;
+
+  async function run(id: string, fn: () => Promise<unknown>) {
+    setBusyId(id);
+    setError(null);
+    try {
+      await fn();
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Something went wrong.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  function remove(id: string) {
+    if (!window.confirm("Delete this voicemail? This cannot be undone.")) return;
+    run(id, () => deleteVoicemail(id));
+  }
+
+  return (
+    <Card>
+      <CardContent className="space-y-4 py-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="font-semibold">Voicemails</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Messages left when you missed a call.
+            </p>
+          </div>
+          {unread > 0 && (
+            <span className="rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-medium text-primary">
+              {unread} unread
+            </span>
+          )}
+        </div>
+
+        {!loaded ? (
+          <p className="py-4 text-center text-sm text-muted-foreground">Loading voicemails…</p>
+        ) : voicemails.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-6 text-center text-sm text-muted-foreground">
+            <VoicemailIcon className="h-6 w-6 text-primary" />
+            No voicemails yet.
+          </div>
+        ) : (
+          <ul className="space-y-3">
+            {voicemails.map((vm) => (
+              <li
+                key={vm.id}
+                className="rounded-lg border border-border bg-muted/30 p-4 text-left"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium tabular-nums text-foreground">
+                        {formatPhone(vm.caller_number) || vm.caller_number}
+                      </span>
+                      {vm.is_read ? (
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                          Read
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary">
+                          Unread
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
+                      {formatDate(vm.created_at)} · {formatDuration(vm.duration_seconds)}
+                    </p>
+                    {vm.recording_url && (
+                      <audio
+                        controls
+                        preload="none"
+                        src={vm.recording_url}
+                        className="mt-3 h-9 w-full max-w-sm"
+                      >
+                        <track kind="captions" />
+                      </audio>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    {!vm.is_read && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => run(vm.id, () => markVoicemailRead(vm.id))}
+                        disabled={busyId === vm.id}
+                      >
+                        <Check className="h-4 w-4" />
+                        Mark read
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => remove(vm.id)}
+                      disabled={busyId === vm.id}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {error && <p className="text-center text-sm text-destructive">{error}</p>}
+      </CardContent>
+    </Card>
   );
 }
 

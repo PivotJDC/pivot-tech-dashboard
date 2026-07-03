@@ -13,6 +13,10 @@ import type { Account, ServiceChoice } from "./api";
 
 const DRAFT_KEY = "pivot.signup.draft";
 const ACCOUNT_KEY = "pivot.account";
+// Customer JWT from POST /v1/auth/verify-code. lib/api reads this same key and
+// sends it as `Authorization: Bearer` on customer calls that require the
+// owner's identity (history, usage, voicemails).
+const TOKEN_KEY = "pivot.customer.token";
 
 export interface Address {
   line1: string;
@@ -55,10 +59,15 @@ export const getDraft = () => read<SignupDraft>(DRAFT_KEY);
 export const saveAccount = (a: Account) => write(ACCOUNT_KEY, a);
 export const getAccount = () => read<Account>(ACCOUNT_KEY);
 
-/** Clear the stored account (customer sign-out). */
+/** Persist / read the customer JWT (owner-scoped API calls). */
+export const saveToken = (t: string) => write(TOKEN_KEY, t);
+export const getToken = () => read<string>(TOKEN_KEY);
+
+/** Clear the stored account + token (customer sign-out). */
 export function clearAccount() {
   if (typeof window === "undefined") return;
   window.sessionStorage.removeItem(ACCOUNT_KEY);
+  window.sessionStorage.removeItem(TOKEN_KEY);
 }
 
 // "Add a line" intent: the customer hit a duplicate-email at signup and chose to

@@ -43,13 +43,27 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * The stored customer JWT (from verify-code), read straight from sessionStorage
+ * to avoid a lib/session ↔ lib/api import cycle. Kept in sync with the
+ * TOKEN_KEY in lib/session. Owner-scoped endpoints (history, usage, voicemails)
+ * need it; public endpoints ignore it.
+ */
+function getCustomerToken(): string | null {
+  if (typeof window === "undefined") return null;
+  const raw = window.sessionStorage.getItem("pivot.customer.token");
+  return raw ? (JSON.parse(raw) as string) : null;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
+  const token = getCustomerToken();
   try {
     res = await fetch(`${API_URL}${path}`, {
       ...init,
       headers: {
         "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(init?.headers ?? {}),
       },
     });
@@ -261,6 +275,37 @@ export interface UsageStats {
 /** GET /v1/accounts/:id/usage — usage stats for this period (owner JWT). */
 export function getAccountUsage(id: string): Promise<UsageStats> {
   return request<UsageStats>(`/v1/accounts/${encodeURIComponent(id)}/usage`);
+}
+
+export interface Voicemail {
+  id: string;
+  caller_number: string;
+  caller_name?: string | null;
+  duration_seconds: number;
+  recording_url?: string | null;
+  transcription?: string | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+/** GET /v1/account/voicemails — my voicemails + unread count (owner JWT). */
+export function getMyVoicemails(): Promise<{ voicemails: Voicemail[]; unread: number }> {
+  return request<{ voicemails: Voicemail[]; unread: number }>("/v1/account/voicemails");
+}
+
+/** PATCH /v1/account/voicemails/:id/read — mark one read (owner JWT). */
+export function markVoicemailRead(id: string): Promise<Voicemail> {
+  return request<Voicemail>(`/v1/account/voicemails/${encodeURIComponent(id)}/read`, {
+    method: "PATCH",
+  });
+}
+
+/** DELETE /v1/account/voicemails/:id — delete one (owner JWT). */
+export function deleteVoicemail(id: string): Promise<{ deleted: boolean; id: string }> {
+  return request<{ deleted: boolean; id: string }>(
+    `/v1/account/voicemails/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+  );
 }
 
 /**

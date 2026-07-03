@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { sendCode, verifyCode, ApiError } from "@/lib/api";
-import { saveAccount } from "@/lib/session";
+import { saveAccount, saveToken } from "@/lib/session";
 
 type Step = "email" | "code";
 
@@ -48,7 +48,8 @@ export default function LoginPage() {
     setBusy(true);
     setError(null);
     try {
-      const { account } = await verifyCode(email.trim(), value);
+      const { token, account } = await verifyCode(email.trim(), value);
+      saveToken(token);
       saveAccount(account);
       router.replace("/account");
     } catch (err) {
