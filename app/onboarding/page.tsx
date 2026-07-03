@@ -9,6 +9,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StepIndicator } from "@/components/step-indicator";
+import { ApnSetup } from "@/components/apn-setup";
 import {
   clearAddLine,
   clearFamilyMode,
@@ -139,6 +140,16 @@ export default function OnboardingPage() {
                 </p>
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* APN configuration — shown right after the eSIM install step. */}
+        <Card>
+          <CardContent className="flex flex-col items-center gap-4 py-6">
+            <p className="font-semibold">APN Setup</p>
+            <div className="w-full max-w-sm">
+              <ApnSetup />
+            </div>
           </CardContent>
         </Card>
 

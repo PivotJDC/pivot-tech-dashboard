@@ -14,6 +14,7 @@ import { StatusBadge } from "@/components/admin/status-badge";
 import { HistoryTable } from "@/components/history-table";
 import { UsageStatsView } from "@/components/usage-stats";
 import { useAdminFetch } from "@/components/admin/use-admin-fetch";
+import { ApnSetup } from "@/components/apn-setup";
 import {
   getAccount,
   getAccountHistory,
@@ -122,6 +123,14 @@ function AccountDetail({
       </section>
 
       <EsimQrSection account={account} />
+
+      {/* APN quick-reference for CSRs. */}
+      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">
+          APN Setup
+        </h2>
+        <ApnSetup />
+      </section>
 
       <ActionsCard account={account} onChanged={onChanged} />
 

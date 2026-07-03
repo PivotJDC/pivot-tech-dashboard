@@ -4,12 +4,14 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ArrowRight, Info, LogOut, Smartphone, Users, Check, Trash2, Voicemail as VoicemailIcon,
+  ArrowRight, Info, LogOut, Smartphone, Users, Check, Trash2, ChevronDown,
+  Voicemail as VoicemailIcon,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ApnSetup } from "@/components/apn-setup";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { HistoryTable } from "@/components/history-table";
 import { UsageStatsView } from "@/components/usage-stats";
@@ -191,6 +193,21 @@ export default function AccountPage() {
             <Pending message="eSIM provisioning is being processed. Check back shortly or contact support." />
           )}
         </Section>
+
+        {/* APN Setup — collapsible help. */}
+        <Card>
+          <CardContent className="py-4">
+            <details className="group">
+              <summary className="flex cursor-pointer list-none items-center justify-between font-semibold [&::-webkit-details-marker]:hidden">
+                APN Setup
+                <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+              </summary>
+              <div className="mt-4">
+                <ApnSetup />
+              </div>
+            </details>
+          </CardContent>
+        </Card>
 
         {/* Your dialer. */}
         <Section
