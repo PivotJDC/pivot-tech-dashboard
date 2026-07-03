@@ -16,10 +16,12 @@ import {
   getAccount,
   getAccountHistory,
   getAccountUsage,
+  getEsimQr,
   reissueProvisioning,
   setAccountStatus,
   accountAction,
   type AdminAccount,
+  type EsimQr,
 } from "@/lib/admin-api";
 import { ApiError, type ProvisioningLinks } from "@/lib/api";
 import { planById } from "@/lib/plans";
@@ -100,13 +102,19 @@ function AccountDetail({
           <Field label="Created" value={formatDate(account.created_at)} />
           <Field label="Activated" value={formatDate(account.activated_at)} />
           <Field label="SIP username" value={account.sip_username ?? "—"} mono />
-          <Field label="eSIM ICCID" value={account.esim_iccid ?? "—"} mono />
+          <Field
+            label="eSIM ICCID"
+            value={account.esim_iccid ?? account.bics_iccid ?? "—"}
+            mono
+          />
           <Field
             label="eSIM provisioned"
             value={account.bics_provisioned ? "Yes" : "No"}
           />
         </dl>
       </section>
+
+      <EsimQrSection account={account} />
 
       <ActionsCard account={account} onChanged={onChanged} />
 
@@ -118,6 +126,80 @@ function AccountDetail({
       <UsageSection accountId={account.id} />
       <HistorySection accountId={account.id} />
     </div>
+  );
+}
+
+function EsimQrSection({ account }: { account: AdminAccount }) {
+  const [qr, setQr] = useState<EsimQr | null>(null);
+  const [busy, setBusy] = useState<null | "show" | "regen">(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function load(regenerate: boolean) {
+    setBusy(regenerate ? "regen" : "show");
+    setError(null);
+    try {
+      setQr(await getEsimQr(account.id, regenerate));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to load eSIM QR.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const iccid = qr?.iccid ?? account.bics_iccid ?? account.esim_iccid ?? "—";
+  const endpointId = qr?.endpoint_id ?? account.bics_endpoint_id ?? "—";
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">
+        eSIM QR Code
+      </h2>
+
+      <div className="flex flex-col gap-6 sm:flex-row">
+        <div className="flex h-48 w-48 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50">
+          {qr ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={qr.qr_code_url} alt="eSIM installation QR code" className="h-44 w-44" />
+          ) : (
+            <span className="px-4 text-center text-xs text-slate-400">
+              Click “Show QR” to render the eSIM install code.
+            </span>
+          )}
+        </div>
+
+        <div className="flex-1 space-y-4">
+          <dl className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
+            <Field label="ICCID" value={iccid} mono />
+            <Field label="BICS endpoint ID" value={endpointId} mono />
+          </dl>
+
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => load(false)} disabled={busy !== null}>
+              {busy === "show" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Show QR
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => load(true)}
+              disabled={busy !== null}
+            >
+              {busy === "regen" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              Regenerate eSIM
+            </Button>
+          </div>
+
+          {error && <p className="text-sm font-medium text-red-600">{error}</p>}
+          <p className="text-xs text-slate-400">
+            “Regenerate eSIM” provisions a brand-new BICS endpoint (new ICCID). The
+            customer must reinstall the profile.
+          </p>
+        </div>
+      </div>
+    </section>
   );
 }
 

@@ -96,11 +96,23 @@ export interface AdminAccount extends Account {
   sip_endpoint_id?: string | null;
   sip_username?: string | null;
   esim_iccid?: string | null;
+  bics_iccid?: string | null;
+  bics_endpoint_id?: string | null;
+  esim_activation_code?: string | null;
   /** Billing provider (accounts.external_billing_provider). */
   external_billing_provider?: string | null;
   bics_provisioned?: boolean;
   created_at?: string;
   activated_at?: string | null;
+}
+
+export interface EsimQr {
+  /** PNG data URL of the eSIM install QR. */
+  qr_code_url: string;
+  iccid: string | null;
+  endpoint_id: string | null;
+  activation_code: string;
+  sm_dp_address: string | null;
 }
 
 /** Account actions backed by PATCH /admin/accounts/:id { action }. */
@@ -283,6 +295,18 @@ export function getAccountHistory(
 /** GET /admin/accounts/:id/usage — usage stats for this period. */
 export function getAccountUsage(id: string) {
   return adminRequest<UsageStats>(`/admin/accounts/${encodeURIComponent(id)}/usage`);
+}
+
+/**
+ * POST /admin/accounts/:id/esim-qr — get (or regenerate) the eSIM install QR.
+ * `regenerate: true` provisions a fresh BICS endpoint; otherwise it returns the
+ * QR from the stored/live activation code. super_admin + admin.
+ */
+export function getEsimQr(id: string, regenerate = false) {
+  return adminRequest<EsimQr>(`/admin/accounts/${encodeURIComponent(id)}/esim-qr`, {
+    method: "POST",
+    body: JSON.stringify({ regenerate }),
+  });
 }
 
 export function reissueProvisioning(id: string) {
