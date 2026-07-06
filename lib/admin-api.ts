@@ -104,6 +104,26 @@ export interface AdminAccount extends Account {
   bics_provisioned?: boolean;
   created_at?: string;
   activated_at?: string | null;
+  // Flat subscriber-profile fields (migration 031), editable from the detail page.
+  address_line1?: string | null;
+  address_line2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zip?: string | null;
+  phone_alt?: string | null;
+}
+
+/** Editable subscriber-profile fields — PATCH /admin/accounts/:id/profile. */
+export interface AccountProfileInput {
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  address_line1?: string;
+  address_line2?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  phone_alt?: string;
 }
 
 export interface EsimQr {
@@ -364,6 +384,14 @@ export function setAccountStatus(id: string, status: string, reason: string) {
   return adminRequest<AdminAccount>(
     `/admin/accounts/${encodeURIComponent(id)}/status`,
     { method: "PATCH", body: JSON.stringify({ status, reason }) },
+  );
+}
+
+/** PATCH /admin/accounts/:id/profile — update subscriber profile fields. */
+export function updateAccountProfile(id: string, patch: AccountProfileInput) {
+  return adminRequest<AdminAccount>(
+    `/admin/accounts/${encodeURIComponent(id)}/profile`,
+    { method: "PATCH", body: JSON.stringify(patch) },
   );
 }
 

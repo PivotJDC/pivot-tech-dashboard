@@ -27,7 +27,9 @@ import {
   reissueProvisioning,
   setAccountStatus,
   accountAction,
+  updateAccountProfile,
   type AdminAccount,
+  type AccountProfileInput,
   type EsimQr,
   type Voicemail,
 } from "@/lib/admin-api";
@@ -81,23 +83,42 @@ function AccountDetail({
   account: AdminAccount;
   onChanged: () => void;
 }) {
+  const fullName = [account.first_name, account.last_name]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-semibold">{account.email}</h1>
+          <h1 className="font-display text-2xl font-semibold">
+            {fullName || account.email}
+          </h1>
           <p className="text-sm tabular-nums text-slate-500">
-            {formatPhone(account.phone_e164)} · {account.market ?? "—"}
+            {account.email} · {formatPhone(account.phone_e164)} · {account.market ?? "—"}
           </p>
         </div>
         <StatusBadge status={account.status} />
       </header>
+
+      <ProfileSection account={account} onChanged={onChanged} />
 
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">
           Account
         </h2>
         <dl className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
+          <Field label="Account name" value={fullName || "—"} />
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">
+              Status
+            </dt>
+            <dd className="mt-0.5">
+              <StatusBadge status={account.status} />
+            </dd>
+          </div>
+          <Field label="Phone number" value={formatPhone(account.phone_e164)} />
           <Field label="Account ID" value={account.id} mono />
           <Field
             label="Plan"
@@ -142,6 +163,148 @@ function AccountDetail({
       <UsageSection accountId={account.id} />
       <VoicemailsSection accountId={account.id} />
       <HistorySection accountId={account.id} />
+    </div>
+  );
+}
+
+type ProfileForm = {
+  first_name: string;
+  last_name: string;
+  email: string;
+  address_line1: string;
+  address_line2: string;
+  city: string;
+  state: string;
+  zip: string;
+  phone_alt: string;
+};
+
+function toForm(account: AdminAccount): ProfileForm {
+  return {
+    first_name: account.first_name ?? "",
+    last_name: account.last_name ?? "",
+    email: account.email ?? "",
+    address_line1: account.address_line1 ?? "",
+    address_line2: account.address_line2 ?? "",
+    city: account.city ?? "",
+    state: account.state ?? "",
+    zip: account.zip ?? "",
+    phone_alt: account.phone_alt ?? "",
+  };
+}
+
+/** Editable subscriber-profile card. Saves via PATCH /admin/accounts/:id/profile. */
+function ProfileSection({
+  account,
+  onChanged,
+}: {
+  account: AdminAccount;
+  onChanged: () => void;
+}) {
+  const [form, setForm] = useState<ProfileForm>(() => toForm(account));
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  // Re-seed when the account reloads (e.g. after a successful save).
+  const initial = useMemo(() => toForm(account), [account]);
+  useEffect(() => {
+    setForm(initial);
+  }, [initial]);
+
+  const dirty = useMemo(
+    () => (Object.keys(form) as (keyof ProfileForm)[]).some((k) => form[k] !== initial[k]),
+    [form, initial],
+  );
+
+  function set(field: keyof ProfileForm, value: string) {
+    setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  async function save() {
+    setSaving(true);
+    setMsg(null);
+    try {
+      // Send the whole form; the middleware trims and treats empty as clear.
+      await updateAccountProfile(account.id, form as AccountProfileInput);
+      setMsg({ ok: true, text: "Profile saved." });
+      onChanged();
+    } catch (err) {
+      setMsg({
+        ok: false,
+        text: err instanceof ApiError ? err.message : "Save failed.",
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">
+        Subscriber Profile
+      </h2>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <ProfileField id="first_name" label="First name" value={form.first_name} onChange={(v) => set("first_name", v)} autoComplete="given-name" />
+        <ProfileField id="last_name" label="Last name" value={form.last_name} onChange={(v) => set("last_name", v)} autoComplete="family-name" />
+        <div className="sm:col-span-2">
+          <ProfileField id="email" label="Email" type="email" value={form.email} onChange={(v) => set("email", v)} autoComplete="email" />
+        </div>
+        <div className="sm:col-span-2">
+          <ProfileField id="address_line1" label="Address line 1" value={form.address_line1} onChange={(v) => set("address_line1", v)} autoComplete="address-line1" />
+        </div>
+        <div className="sm:col-span-2">
+          <ProfileField id="address_line2" label="Address line 2" value={form.address_line2} onChange={(v) => set("address_line2", v)} autoComplete="address-line2" />
+        </div>
+        <ProfileField id="city" label="City" value={form.city} onChange={(v) => set("city", v)} autoComplete="address-level2" />
+        <div className="grid grid-cols-2 gap-4">
+          <ProfileField id="state" label="State" value={form.state} onChange={(v) => set("state", v.toUpperCase())} maxLength={2} autoComplete="address-level1" />
+          <ProfileField id="zip" label="ZIP" value={form.zip} onChange={(v) => set("zip", v)} maxLength={10} autoComplete="postal-code" />
+        </div>
+        <ProfileField id="phone_alt" label="Alternate phone" type="tel" value={form.phone_alt} onChange={(v) => set("phone_alt", v)} autoComplete="tel" />
+      </div>
+
+      <div className="mt-5 flex items-center gap-3">
+        <Button onClick={save} disabled={saving || !dirty}>
+          {saving ? "Saving…" : "Save"}
+        </Button>
+        {msg ? (
+          <span className={`text-sm ${msg.ok ? "text-emerald-600" : "text-red-600"}`}>
+            {msg.text}
+          </span>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function ProfileField({
+  id,
+  label,
+  value,
+  onChange,
+  type = "text",
+  maxLength,
+  autoComplete,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+  maxLength?: number;
+  autoComplete?: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      <Input
+        id={id}
+        type={type}
+        value={value}
+        maxLength={maxLength}
+        autoComplete={autoComplete}
+        onChange={(e) => onChange(e.target.value)}
+      />
     </div>
   );
 }
