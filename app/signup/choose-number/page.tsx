@@ -128,6 +128,24 @@ export default function ChooseNumberPage() {
         );
         return;
       }
+      // The chosen number was taken between selection and checkout
+      // (DID_UNAVAILABLE). Clear the selection, keep the list visible, and
+      // refresh availability so the user can pick another number.
+      const numberUnavailable = err instanceof ApiError
+        && err.code === "VALIDATION_ERROR"
+        && err.field === "phone_e164";
+      if (numberUnavailable) {
+        setSelected(null);
+        // Refresh availability, then set the message LAST: search() resets
+        // error to null at its start, so setting it afterward wins (both run
+        // synchronously in this tick and are batched). The list stays visible.
+        search();
+        setError(
+          "The number you selected is no longer available. "
+          + "Please choose a different number.",
+        );
+        return;
+      }
       setError(
         err instanceof ApiError
           ? err.message
