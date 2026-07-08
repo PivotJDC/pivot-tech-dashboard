@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, Loader2, RefreshCw, RotateCcw, Ban, Check, Trash2, Voicemail as VoicemailIcon,
@@ -28,12 +28,14 @@ import {
   setAccountStatus,
   accountAction,
   updateAccountProfile,
+  deleteAccount,
   type AdminAccount,
   type AccountProfileInput,
   type EsimQr,
   type Voicemail,
 } from "@/lib/admin-api";
 import { ApiError, type ProvisioningLinks } from "@/lib/api";
+import { getAdminRole } from "@/lib/admin-auth";
 import { planById } from "@/lib/plans";
 import { formatDate, formatPhone } from "@/lib/format";
 
@@ -83,6 +85,11 @@ function AccountDetail({
   account: AdminAccount;
   onChanged: () => void;
 }) {
+  // The middleware is the real gate (super_admin-only); this just hides the
+  // destructive controls for non-super-admins.
+  const [role, setRole] = useState<string | null>(null);
+  useEffect(() => setRole(getAdminRole()), []);
+
   const fullName = [account.first_name, account.last_name]
     .filter(Boolean)
     .join(" ")
@@ -163,7 +170,145 @@ function AccountDetail({
       <UsageSection accountId={account.id} />
       <VoicemailsSection accountId={account.id} />
       <HistorySection accountId={account.id} />
+
+      {role === "super_admin" && (
+        <DangerZone account={account} onChanged={onChanged} />
+      )}
     </div>
+  );
+}
+
+/**
+ * Super-admin-only destructive actions: cancel (type CANCEL) and hard-delete
+ * (type the phone number). Kept separate from ActionsCard so non-super-admins
+ * never see them; the middleware enforces the real gate.
+ */
+function DangerZone({
+  account,
+  onChanged,
+}: {
+  account: AdminAccount;
+  onChanged: () => void;
+}) {
+  const router = useRouter();
+  const [cancelText, setCancelText] = useState("");
+  const [deleteText, setDeleteText] = useState("");
+  const [busy, setBusy] = useState<"cancel" | "delete" | null>(null);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const cancelled = account.status === "cancelled";
+  const phone = account.phone_e164 ?? "";
+  const digits = (v: string) => v.replace(/\D/g, "");
+  const phoneConfirmed = Boolean(phone) && digits(deleteText) === digits(phone);
+
+  async function cancelAccount() {
+    setBusy("cancel");
+    setMsg(null);
+    try {
+      await accountAction(account.id, "cancel");
+      setMsg({ ok: true, text: "Account cancelled." });
+      setCancelText("");
+      onChanged();
+    } catch (err) {
+      setMsg({ ok: false, text: err instanceof ApiError ? err.message : "Cancel failed." });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function removeAccount() {
+    setBusy("delete");
+    setMsg(null);
+    try {
+      await deleteAccount(account.id);
+      // The account no longer exists — leave the detail page.
+      router.push("/admin/accounts");
+    } catch (err) {
+      setMsg({ ok: false, text: err instanceof ApiError ? err.message : "Delete failed." });
+      setBusy(null);
+    }
+  }
+
+  return (
+    <section className="rounded-xl border border-red-200 bg-red-50/40 p-6 shadow-sm">
+      <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-red-700">
+        Danger Zone
+      </h2>
+      <p className="text-sm text-slate-600">
+        Super-admin only. These actions affect live service and can’t be undone.
+      </p>
+
+      {/* Cancel */}
+      <div className="mt-5 border-t border-red-200 pt-4">
+        <h3 className="text-sm font-semibold text-slate-900">Cancel account</h3>
+        <p className="mt-1 text-sm text-slate-600">
+          Suspends service (status → cancelled). Type{" "}
+          <span className="font-mono font-semibold">CANCEL</span> to confirm.
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <Input
+            value={cancelText}
+            onChange={(e) => setCancelText(e.target.value)}
+            placeholder="CANCEL"
+            className="max-w-[180px]"
+            disabled={cancelled || busy !== null}
+          />
+          <Button
+            onClick={cancelAccount}
+            disabled={cancelled || busy !== null || cancelText !== "CANCEL"}
+            className="bg-red-600 text-white hover:bg-red-700"
+          >
+            {busy === "cancel" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Ban className="h-4 w-4" />
+            )}
+            {cancelled ? "Cancelled" : "Cancel account"}
+          </Button>
+        </div>
+      </div>
+
+      {/* Delete */}
+      <div className="mt-5 border-t border-red-200 pt-4">
+        <h3 className="text-sm font-semibold text-slate-900">Delete account</h3>
+        <p className="mt-1 text-sm text-slate-600">
+          Permanently removes the account and all related records (messages,
+          calls, voicemails, usage, DID). Releases the number back to Telnyx.
+          Type the phone number{" "}
+          <span className="font-mono font-semibold">{phone || "—"}</span> to
+          confirm.
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <Input
+            value={deleteText}
+            onChange={(e) => setDeleteText(e.target.value)}
+            placeholder={phone}
+            className="max-w-[220px]"
+            disabled={busy !== null}
+          />
+          <Button
+            onClick={removeAccount}
+            disabled={busy !== null || !phoneConfirmed}
+            className="bg-red-600 text-white hover:bg-red-700"
+          >
+            {busy === "delete" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4" />
+            )}
+            Delete account
+          </Button>
+        </div>
+      </div>
+
+      {msg && (
+        <p
+          className={`mt-4 text-sm font-medium ${msg.ok ? "text-emerald-600" : "text-red-600"}`}
+        >
+          {msg.text}
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -623,9 +768,8 @@ function ActionsCard({
   account: AdminAccount;
   onChanged: () => void;
 }) {
-  const [busy, setBusy] = useState<"retry_bics" | "cancel" | null>(null);
+  const [busy, setBusy] = useState<"retry_bics" | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const cancelled = account.status === "cancelled";
 
   async function retryBics() {
     setBusy("retry_bics");
@@ -644,34 +788,13 @@ function ActionsCard({
     }
   }
 
-  async function cancelAccount() {
-    // eslint-disable-next-line no-alert
-    if (!window.confirm(`Cancel the account for ${account.email}? This suspends service.`)) {
-      return;
-    }
-    setBusy("cancel");
-    setMsg(null);
-    try {
-      await accountAction(account.id, "cancel");
-      setMsg({ ok: true, text: "Account cancelled." });
-      onChanged();
-    } catch (err) {
-      setMsg({
-        ok: false,
-        text: err instanceof ApiError ? err.message : "Cancel failed.",
-      });
-    } finally {
-      setBusy(null);
-    }
-  }
-
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
       <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-slate-500">
         Actions
       </h2>
       <p className="mt-1 text-sm text-slate-500">
-        Re-run eSIM provisioning or cancel this account.
+        Re-run eSIM provisioning. Cancel / delete live in the Danger Zone below.
       </p>
       <div className="mt-3 flex flex-wrap gap-3">
         <Button variant="outline" onClick={retryBics} disabled={busy !== null}>
@@ -681,19 +804,6 @@ function ActionsCard({
             <RotateCcw className="h-4 w-4" />
           )}
           Retry BICS
-        </Button>
-        <Button
-          variant="outline"
-          onClick={cancelAccount}
-          disabled={busy !== null || cancelled}
-          className="border-red-200 text-red-700 hover:bg-red-50"
-        >
-          {busy === "cancel" ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Ban className="h-4 w-4" />
-          )}
-          {cancelled ? "Cancelled" : "Cancel account"}
         </Button>
       </div>
       {msg && (

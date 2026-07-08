@@ -396,6 +396,17 @@ export function updateAccountProfile(id: string, patch: AccountProfileInput) {
 }
 
 /**
+ * DELETE /admin/accounts/:id — hard-delete an account and all related records
+ * (super_admin only). The middleware requires the X-Confirm-Delete header.
+ */
+export function deleteAccount(id: string) {
+  return adminRequest<{ deleted: boolean }>(
+    `/admin/accounts/${encodeURIComponent(id)}`,
+    { method: "DELETE", headers: { "X-Confirm-Delete": "true" } },
+  );
+}
+
+/**
  * Run an account action via PATCH /admin/accounts/:id — e.g. "retry_bics"
  * (re-run eSIM provisioning) or "cancel" (set status to cancelled). Returns the
  * updated account.
