@@ -135,13 +135,17 @@ export interface EsimQr {
   sm_dp_address: string | null;
 }
 
+// Admin voicemail view is METADATA ONLY — no recording URL and only a short
+// transcription preview (privacy: admins can't play or read the full message).
 export interface Voicemail {
   id: string;
   caller_number: string;
   caller_name?: string | null;
   duration_seconds: number;
-  recording_url?: string | null;
-  transcription?: string | null;
+  /** First 50 chars of the transcription (CSR context only). */
+  transcription_preview?: string | null;
+  /** True when the full transcription is longer than the preview. */
+  transcription_truncated?: boolean;
   is_read: boolean;
   created_at: string;
 }
@@ -347,16 +351,8 @@ export function getAccountVoicemails(id: string) {
   );
 }
 
-/**
- * GET /admin/voicemails/:id/recording?format=json — a fresh signed URL for the
- * recording. The <audio> element can't send the admin auth header, so we fetch
- * the signed S3 URL here and set it as the audio src.
- */
-export function getVoicemailRecordingUrl(id: string) {
-  return adminRequest<{ url: string }>(
-    `/admin/voicemails/${encodeURIComponent(id)}/recording?format=json`,
-  );
-}
+// Admin voicemail recording playback has been removed for privacy — the audio
+// is reachable only by the subscriber (customer portal + dial-in IVR).
 
 /** PATCH /admin/voicemails/:id/read — mark a voicemail read. */
 export function markVoicemailRead(id: string) {
