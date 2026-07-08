@@ -409,6 +409,25 @@ export function getAccountProvisioningQr(id: string) {
   );
 }
 
+export interface SipCredentials {
+  sip_username: string;
+  /** Plaintext — returned only by the rotate response; never stored. */
+  sip_password: string;
+  updated: boolean;
+}
+
+/**
+ * POST /admin/accounts/:id/refresh-sip-credentials — rotate the SIP credential
+ * (super_admin). Returns the new username + plaintext password so the caller
+ * can build a fresh provisioning QR.
+ */
+export function refreshSipCredentials(id: string) {
+  return adminRequest<SipCredentials>(
+    `/admin/accounts/${encodeURIComponent(id)}/refresh-sip-credentials`,
+    { method: "POST" },
+  );
+}
+
 /**
  * DELETE /admin/accounts/:id — hard-delete an account and all related records
  * (super_admin only). The middleware requires the X-Confirm-Delete header.

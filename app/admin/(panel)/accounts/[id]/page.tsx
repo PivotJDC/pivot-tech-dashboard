@@ -4,9 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowLeft, Loader2, RefreshCw, RotateCcw, Ban, Check, KeyRound, QrCode, Trash2,
+  ArrowLeft, Loader2, RefreshCw, RotateCcw, Ban, Check, KeyRound, QrCode, Copy, Trash2,
   Voicemail as VoicemailIcon,
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +32,7 @@ import {
   updateAccountProfile,
   getAccountPortPin,
   getAccountProvisioningQr,
+  refreshSipCredentials,
   deleteAccount,
   type AdminAccount,
   type AccountProfileInput,
@@ -165,7 +167,7 @@ function AccountDetail({
 
       <PortPinCard accountId={account.id} />
 
-      <DialerSetupCard accountId={account.id} />
+      <DialerSetupCard accountId={account.id} isSuperAdmin={role === "super_admin"} />
 
       {/* APN quick-reference for CSRs. */}
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -523,12 +525,29 @@ function PortPinCard({ accountId }: { accountId: string }) {
   );
 }
 
-// Dialer provisioning QR for CSR-assisted setup — generated on demand (it
-// carries the live SIP credentials, so it isn't fetched until requested).
-function DialerSetupCard({ accountId }: { accountId: string }) {
+/** cloudsoftphone:// deep link encoding a set of SIP credentials. */
+function buildProvisioningUrl(username: string, password: string) {
+  return `cloudsoftphone://Pivot-Tech?username=${encodeURIComponent(username)}`
+    + `&password=${encodeURIComponent(password)}`;
+}
+
+// Dialer provisioning QR for CSR-assisted setup. "Show QR" renders the current
+// credentials; super-admins can "Refresh SIP Credentials" to rotate them, which
+// immediately renders a fresh QR + copyable URL for the subscriber.
+function DialerSetupCard({
+  accountId,
+  isSuperAdmin,
+}: {
+  accountId: string;
+  isSuperAdmin: boolean;
+}) {
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Set after a rotation — the client-rendered QR uses the returned plaintext.
+  const [rotatedUrl, setRotatedUrl] = useState<string | null>(null);
+  const [rotating, setRotating] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   async function show() {
     setLoading(true);
@@ -543,6 +562,39 @@ function DialerSetupCard({ accountId }: { accountId: string }) {
     }
   }
 
+  async function refresh() {
+    // eslint-disable-next-line no-alert
+    if (!window.confirm(
+      "Rotate this subscriber's SIP credentials? Their current dialer will stop "
+      + "working until they re-scan the new QR.",
+    )) {
+      return;
+    }
+    setRotating(true);
+    setError(null);
+    setCopied(false);
+    try {
+      const creds = await refreshSipCredentials(accountId);
+      const url = buildProvisioningUrl(creds.sip_username, creds.sip_password);
+      setRotatedUrl(url);
+      setQrUrl(null); // the fetched QR is now stale
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Couldn't refresh the credentials.");
+    } finally {
+      setRotating(false);
+    }
+  }
+
+  async function copyUrl() {
+    if (!rotatedUrl) return;
+    try {
+      await navigator.clipboard.writeText(rotatedUrl);
+      setCopied(true);
+    } catch {
+      setError("Couldn't copy to clipboard.");
+    }
+  }
+
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
       <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-slate-500">
@@ -552,26 +604,60 @@ function DialerSetupCard({ accountId }: { accountId: string }) {
         Provisioning QR for Cloud Softphone — scan it in the app to load the
         subscriber&apos;s SIP credentials.
       </p>
-      <div className="mt-3">
-        {qrUrl ? (
-          // qr_url is a self-contained data: URL from the middleware.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={qrUrl}
-            alt="Dialer provisioning QR code"
-            className="h-44 w-44 rounded-lg border border-slate-200 bg-white p-2"
-          />
-        ) : (
-          <Button variant="outline" onClick={show} disabled={loading}>
-            {loading ? (
+
+      {rotatedUrl ? (
+        <div className="mt-4 space-y-3">
+          <div className="w-fit rounded-lg border border-slate-200 bg-white p-3">
+            <QRCodeSVG value={rotatedUrl} size={176} aria-label="New dialer provisioning QR code" />
+          </div>
+          <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+            The subscriber must delete their existing Cloud Softphone account and
+            re-scan this QR code.
+          </div>
+          <Button variant="outline" onClick={copyUrl}>
+            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            {copied ? "Copied" : "Copy Provisioning URL"}
+          </Button>
+        </div>
+      ) : (
+        <div className="mt-3">
+          {qrUrl ? (
+            // qr_url is a self-contained data: URL from the middleware.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={qrUrl}
+              alt="Dialer provisioning QR code"
+              className="h-44 w-44 rounded-lg border border-slate-200 bg-white p-2"
+            />
+          ) : (
+            <Button variant="outline" onClick={show} disabled={loading}>
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <QrCode className="h-4 w-4" />
+              )}
+              Show QR
+            </Button>
+          )}
+        </div>
+      )}
+
+      {isSuperAdmin && (
+        <div className="mt-4 border-t border-slate-100 pt-4">
+          <Button variant="outline" onClick={refresh} disabled={rotating}>
+            {rotating ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <QrCode className="h-4 w-4" />
+              <RefreshCw className="h-4 w-4" />
             )}
-            Show QR
+            Refresh SIP Credentials
           </Button>
-        )}
-      </div>
+          <p className="mt-2 text-xs text-slate-400">
+            Rotates the credentials and generates a new QR. Super-admin only.
+          </p>
+        </div>
+      )}
+
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
     </section>
   );
