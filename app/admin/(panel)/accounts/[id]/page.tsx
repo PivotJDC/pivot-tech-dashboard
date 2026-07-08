@@ -524,10 +524,14 @@ function PortPinCard({ accountId }: { accountId: string }) {
   );
 }
 
-/** cloudsoftphone:// deep link encoding a set of SIP credentials. */
+// Acrobits Cloud Softphone QR text: csc:user:pass@CloudID
+// (see doc.acrobits.net/cloudsoftphone/qr.html). CloudID matches the
+// middleware's ACROBITS_CLOUD_ID (currently "Pivot-Tech").
+const ACROBITS_CLOUD_ID = process.env.NEXT_PUBLIC_ACROBITS_CLOUD_ID || "Pivot-Tech";
+
 function buildProvisioningUrl(username: string, password: string) {
-  return `cloudsoftphone://Pivot-Tech?username=${encodeURIComponent(username)}`
-    + `&password=${encodeURIComponent(password)}`;
+  return `csc:${encodeURIComponent(username)}:${encodeURIComponent(password)}`
+    + `@${ACROBITS_CLOUD_ID}`;
 }
 
 // Dialer provisioning QR for CSR-assisted setup. "Show QR" renders the current
