@@ -395,6 +395,13 @@ export function updateAccountProfile(id: string, patch: AccountProfileInput) {
   );
 }
 
+/** GET /admin/accounts/:id/port-pin — the subscriber's port-out PIN (CSR). */
+export function getAccountPortPin(id: string) {
+  return adminRequest<{ port_out_pin: string }>(
+    `/admin/accounts/${encodeURIComponent(id)}/port-pin`,
+  );
+}
+
 /**
  * DELETE /admin/accounts/:id — hard-delete an account and all related records
  * (super_admin only). The middleware requires the X-Confirm-Delete header.

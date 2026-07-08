@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowLeft, Loader2, RefreshCw, RotateCcw, Ban, Check, Trash2, Voicemail as VoicemailIcon,
+  ArrowLeft, Loader2, RefreshCw, RotateCcw, Ban, Check, KeyRound, Trash2,
+  Voicemail as VoicemailIcon,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ import {
   setAccountStatus,
   accountAction,
   updateAccountProfile,
+  getAccountPortPin,
   deleteAccount,
   type AdminAccount,
   type AccountProfileInput,
@@ -159,6 +161,8 @@ function AccountDetail({
       </section>
 
       <EsimQrSection account={account} />
+
+      <PortPinCard accountId={account.id} />
 
       {/* APN quick-reference for CSRs. */}
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -463,6 +467,56 @@ function ProfileField({
         onChange={(e) => onChange(e.target.value)}
       />
     </div>
+  );
+}
+
+// Read-only port-out PIN for CSR support. Fetched on demand (not in the general
+// account payload) so it isn't shown until a CSR needs it.
+function PortPinCard({ accountId }: { accountId: string }) {
+  const [pin, setPin] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function reveal() {
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await getAccountPortPin(accountId);
+      setPin(r.port_out_pin);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Couldn't load the PIN.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-slate-500">
+        Port-out PIN
+      </h2>
+      <p className="mt-1 text-sm text-slate-500">
+        The transfer PIN the subscriber gives a new carrier. Read-only — the
+        customer resets it from their portal.
+      </p>
+      <div className="mt-3 flex items-center gap-3">
+        {pin ? (
+          <code className="rounded bg-slate-100 px-3 py-1.5 font-mono text-sm tracking-widest text-slate-900">
+            {pin}
+          </code>
+        ) : (
+          <Button variant="outline" onClick={reveal} disabled={loading}>
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <KeyRound className="h-4 w-4" />
+            )}
+            Show PIN
+          </Button>
+        )}
+      </div>
+      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+    </section>
   );
 }
 

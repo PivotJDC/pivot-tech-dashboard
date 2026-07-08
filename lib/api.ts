@@ -277,6 +277,20 @@ export function getAccountUsage(id: string): Promise<UsageStats> {
   return request<UsageStats>(`/v1/accounts/${encodeURIComponent(id)}/usage`);
 }
 
+export interface PortPin {
+  port_out_pin: string;
+}
+
+/** GET /v1/account/port-pin — my port-out (transfer) PIN. */
+export function getPortPin(): Promise<PortPin> {
+  return request<PortPin>("/v1/account/port-pin");
+}
+
+/** POST /v1/account/port-pin/reset — generate + return a fresh PIN. */
+export function resetPortPin(): Promise<PortPin> {
+  return request<PortPin>("/v1/account/port-pin/reset", { method: "POST" });
+}
+
 export interface Voicemail {
   id: string;
   caller_number: string;

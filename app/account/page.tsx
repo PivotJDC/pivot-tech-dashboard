@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowRight, Info, LogOut, Smartphone, Users, Check, Trash2, ChevronDown,
-  Voicemail as VoicemailIcon,
+  Eye, EyeOff, RefreshCw, Voicemail as VoicemailIcon,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -26,6 +26,8 @@ import {
   getVoicemailRecordingUrl,
   markVoicemailRead,
   deleteVoicemail,
+  getPortPin,
+  resetPortPin,
   ApiError,
   type Account,
   type CallRecord,
@@ -271,6 +273,9 @@ export default function AccountPage() {
           </Section>
         )}
 
+        {/* Port-out (transfer) PIN. */}
+        <TransferPinSection />
+
         {/* Usage this period. */}
         {usage && (
           <Card>
@@ -463,6 +468,67 @@ function VoicemailsSection({ accountId }: { accountId: string }) {
         {error && <p className="text-center text-sm text-destructive">{error}</p>}
       </CardContent>
     </Card>
+  );
+}
+
+function TransferPinSection() {
+  const [pin, setPin] = useState<string | null>(null);
+  const [shown, setShown] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getPortPin()
+      .then((r) => setPin(r.port_out_pin))
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Couldn't load your PIN."));
+  }, []);
+
+  async function reset() {
+    setResetting(true);
+    setError(null);
+    try {
+      const r = await resetPortPin();
+      setPin(r.port_out_pin);
+      setShown(true); // reveal the new PIN so the customer can note it down
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Couldn't reset your PIN.");
+    } finally {
+      setResetting(false);
+    }
+  }
+
+  return (
+    <Section
+      title="Transfer PIN"
+      subtitle="You'll need this PIN if you transfer your number to another carrier."
+    >
+      <div className="flex flex-wrap items-center justify-center gap-3">
+        <code className="rounded-lg border bg-muted/40 px-4 py-2 font-mono text-lg tracking-[0.3em] text-foreground">
+          {pin ? (shown ? pin : "••••••") : "……"}
+        </code>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setShown((s) => !s)}
+          disabled={!pin}
+        >
+          {shown ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          {shown ? "Hide" : "Show PIN"}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={reset}
+          disabled={resetting}
+        >
+          <RefreshCw className={`h-4 w-4 ${resetting ? "animate-spin" : ""}`} />
+          Reset PIN
+        </Button>
+      </div>
+      {error && <p className="text-sm text-destructive">{error}</p>}
+    </Section>
   );
 }
 
