@@ -42,6 +42,16 @@ function addressValid(a: Address): boolean {
   return Boolean(a.line1.trim() && a.city.trim() && a.state && ZIP_RE.test(a.zip));
 }
 
+// PO Boxes / non-physical addresses can't be used for mobile service — E911
+// can't dispatch to them. Matches PO Box, P.O. Box, P O Box, Post Office Box,
+// PMB, HC (Highway Contract), and General Delivery.
+const PO_BOX_RE = /\b(p\.?\s*o\.?\s*box|post\s*office|pmb|hc|general\s*delivery)\b/i;
+const PO_BOX_MESSAGE = "A physical street address is required. PO Boxes cannot be used for mobile service.";
+
+function isPoBoxAddress(a: Address): boolean {
+  return PO_BOX_RE.test(a.line1) || PO_BOX_RE.test(a.line2 ?? "");
+}
+
 export default function SignupPage() {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -131,6 +141,15 @@ export default function SignupPage() {
   function goToStep3() {
     if (!infoValid) {
       setError("Please complete your name and address (ZIP must be 5 digits).");
+      return;
+    }
+    // Reject PO Boxes on the service address and (when different) the billing
+    // address before advancing.
+    if (
+      isPoBoxAddress(serviceAddress)
+      || (!billingSameAsService && isPoBoxAddress(billingAddress))
+    ) {
+      setError(PO_BOX_MESSAGE);
       return;
     }
     setError(null);
