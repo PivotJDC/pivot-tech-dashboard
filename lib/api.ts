@@ -291,6 +291,18 @@ export function resetPortPin(): Promise<PortPin> {
   return request<PortPin>("/v1/account/port-pin/reset", { method: "POST" });
 }
 
+export interface ProvisioningQr {
+  /** Self-contained PNG data URL of the dialer setup QR. */
+  qr_url: string;
+  /** cloudsoftphone:// deep link the QR encodes. */
+  provisioning_url: string;
+}
+
+/** GET /v1/account/provisioning-qr — my dialer setup QR (live SIP credentials). */
+export function getProvisioningQr(): Promise<ProvisioningQr> {
+  return request<ProvisioningQr>("/v1/account/provisioning-qr");
+}
+
 export interface Voicemail {
   id: string;
   caller_number: string;

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowLeft, Loader2, RefreshCw, RotateCcw, Ban, Check, KeyRound, Trash2,
+  ArrowLeft, Loader2, RefreshCw, RotateCcw, Ban, Check, KeyRound, QrCode, Trash2,
   Voicemail as VoicemailIcon,
 } from "lucide-react";
 
@@ -30,6 +30,7 @@ import {
   accountAction,
   updateAccountProfile,
   getAccountPortPin,
+  getAccountProvisioningQr,
   deleteAccount,
   type AdminAccount,
   type AccountProfileInput,
@@ -163,6 +164,8 @@ function AccountDetail({
       <EsimQrSection account={account} />
 
       <PortPinCard accountId={account.id} />
+
+      <DialerSetupCard accountId={account.id} />
 
       {/* APN quick-reference for CSRs. */}
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -512,6 +515,60 @@ function PortPinCard({ accountId }: { accountId: string }) {
               <KeyRound className="h-4 w-4" />
             )}
             Show PIN
+          </Button>
+        )}
+      </div>
+      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+    </section>
+  );
+}
+
+// Dialer provisioning QR for CSR-assisted setup — generated on demand (it
+// carries the live SIP credentials, so it isn't fetched until requested).
+function DialerSetupCard({ accountId }: { accountId: string }) {
+  const [qrUrl, setQrUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function show() {
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await getAccountProvisioningQr(accountId);
+      setQrUrl(r.qr_url);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Couldn't generate the QR.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-slate-500">
+        Dialer Setup
+      </h2>
+      <p className="mt-1 text-sm text-slate-500">
+        Provisioning QR for Cloud Softphone — scan it in the app to load the
+        subscriber&apos;s SIP credentials.
+      </p>
+      <div className="mt-3">
+        {qrUrl ? (
+          // qr_url is a self-contained data: URL from the middleware.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={qrUrl}
+            alt="Dialer provisioning QR code"
+            className="h-44 w-44 rounded-lg border border-slate-200 bg-white p-2"
+          />
+        ) : (
+          <Button variant="outline" onClick={show} disabled={loading}>
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <QrCode className="h-4 w-4" />
+            )}
+            Show QR
           </Button>
         )}
       </div>

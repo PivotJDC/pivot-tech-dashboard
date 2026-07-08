@@ -402,6 +402,13 @@ export function getAccountPortPin(id: string) {
   );
 }
 
+/** GET /admin/accounts/:id/provisioning-qr — the dialer setup QR (CSR). */
+export function getAccountProvisioningQr(id: string) {
+  return adminRequest<{ qr_url: string; provisioning_url: string }>(
+    `/admin/accounts/${encodeURIComponent(id)}/provisioning-qr`,
+  );
+}
+
 /**
  * DELETE /admin/accounts/:id — hard-delete an account and all related records
  * (super_admin only). The middleware requires the X-Confirm-Delete header.

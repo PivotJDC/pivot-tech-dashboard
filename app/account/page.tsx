@@ -28,6 +28,7 @@ import {
   deleteVoicemail,
   getPortPin,
   resetPortPin,
+  getProvisioningQr,
   ApiError,
   type Account,
   type CallRecord,
@@ -109,7 +110,6 @@ export default function AccountPage() {
   const status = liveStatus ?? account.status;
   const plan = planById(account.plan);
   const esim = account.esim;
-  const dialerQr = account.provisioning?.qr_code_url;
   const addr = account.service_address;
   // Family lines: only a primary (no parent) with children gets the family card.
   const isPrimary = !account.parent_account_id;
@@ -211,25 +211,8 @@ export default function AccountPage() {
           </CardContent>
         </Card>
 
-        {/* Your dialer. */}
-        <Section
-          title="Your Dialer"
-          subtitle="Open the Pivot Mobility app, then scan this code to activate calling."
-        >
-          {dialerQr ? (
-            <div className="flex flex-col items-center gap-2 rounded-lg border bg-white p-3">
-              {/* qr_code_url is a self-contained data: URL from the middleware. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={dialerQr}
-                alt="Dialer provisioning QR code"
-                className="h-44 w-44"
-              />
-            </div>
-          ) : (
-            <Pending message="Your dialer QR isn't ready yet. Refresh in a moment." />
-          )}
-        </Section>
+        {/* Set up your dialer — live provisioning QR from the middleware. */}
+        <DialerSetupSection />
 
         {/* Family lines (primary accounts only). */}
         {isPrimary && (
@@ -468,6 +451,38 @@ function VoicemailsSection({ accountId }: { accountId: string }) {
         {error && <p className="text-center text-sm text-destructive">{error}</p>}
       </CardContent>
     </Card>
+  );
+}
+
+function DialerSetupSection() {
+  const [qrUrl, setQrUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getProvisioningQr()
+      .then((r) => setQrUrl(r.qr_url))
+      .catch((err) => setError(
+        err instanceof ApiError ? err.message : "Couldn't load your setup code.",
+      ));
+  }, []);
+
+  return (
+    <Section
+      title="Set Up Your Dialer"
+      subtitle="Open Cloud Softphone, tap the QR scanner, and scan this code."
+    >
+      {qrUrl ? (
+        <div className="flex flex-col items-center gap-2 rounded-lg border bg-white p-3">
+          {/* qr_url is a self-contained data: URL from the middleware. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={qrUrl} alt="Dialer setup QR code" className="h-44 w-44" />
+        </div>
+      ) : error ? (
+        <p className="text-sm text-destructive">{error}</p>
+      ) : (
+        <Pending message="Your dialer QR is loading…" />
+      )}
+    </Section>
   );
 }
 
