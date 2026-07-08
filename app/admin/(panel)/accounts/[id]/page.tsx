@@ -90,6 +90,10 @@ function AccountDetail({
   const [role, setRole] = useState<string | null>(null);
   useEffect(() => setRole(getAdminRole()), []);
 
+  // Surfaced by a failed eSIM retry so the status badge can turn red; cleared on
+  // a successful (re)provision.
+  const [esimError, setEsimError] = useState<string | null>(null);
+
   const fullName = [account.first_name, account.last_name]
     .filter(Boolean)
     .join(" ")
@@ -143,10 +147,14 @@ function AccountDetail({
             value={account.esim_iccid ?? account.bics_iccid ?? "—"}
             mono
           />
-          <Field
-            label="eSIM provisioned"
-            value={account.bics_provisioned ? "Yes" : "No"}
-          />
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">
+              eSIM status
+            </dt>
+            <dd className="mt-0.5">
+              <EsimStatusBadge account={account} error={esimError} />
+            </dd>
+          </div>
         </dl>
       </section>
 
@@ -160,7 +168,11 @@ function AccountDetail({
         <ApnSetup />
       </section>
 
-      <ActionsCard account={account} onChanged={onChanged} />
+      <ActionsCard
+        account={account}
+        onChanged={onChanged}
+        onEsimError={setEsimError}
+      />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <ForceStatusCard account={account} onChanged={onChanged} />
@@ -495,7 +507,7 @@ function EsimQrSection({ account }: { account: AdminAccount }) {
         <div className="flex-1 space-y-4">
           <dl className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
             <Field label="ICCID" value={iccid} mono />
-            <Field label="BICS endpoint ID" value={endpointId} mono />
+            <Field label="eSIM Endpoint ID" value={endpointId} mono />
           </dl>
 
           <div className="flex flex-wrap gap-2">
@@ -519,7 +531,7 @@ function EsimQrSection({ account }: { account: AdminAccount }) {
 
           {error && <p className="text-sm font-medium text-red-600">{error}</p>}
           <p className="text-xs text-slate-400">
-            “Regenerate eSIM” provisions a brand-new BICS endpoint (new ICCID). The
+            “Regenerate eSIM” provisions a brand-new eSIM (new ICCID). The
             customer must reinstall the profile.
           </p>
         </div>
@@ -761,30 +773,77 @@ function Field({
   );
 }
 
+// eSIM status derived from the account (+ a transient retry error). The vendor
+// (BICS) name is intentionally hidden — this is CSR-facing.
+function esimStatusFor(account: AdminAccount, error?: string | null) {
+  const iccid = account.esim_iccid ?? account.bics_iccid ?? null;
+  const provisioned = Boolean(account.bics_provisioned)
+    || (Boolean(account.bics_endpoint_id) && Boolean(iccid));
+  if (provisioned) {
+    return { label: "eSIM Active", cls: "bg-emerald-100 text-emerald-800 border-emerald-200" };
+  }
+  if (error) {
+    return { label: "eSIM Failed", cls: "bg-red-100 text-red-700 border-red-200" };
+  }
+  // A live account still missing its eSIM is awaiting provisioning; a pending
+  // account simply hasn't provisioned one yet.
+  if (account.status === "active" || account.status === "suspended") {
+    return { label: "eSIM Pending", cls: "bg-amber-100 text-amber-800 border-amber-200" };
+  }
+  return { label: "No eSIM", cls: "bg-slate-100 text-slate-600 border-slate-200" };
+}
+
+function EsimStatusBadge({
+  account,
+  error,
+}: {
+  account: AdminAccount;
+  error?: string | null;
+}) {
+  const { label, cls } = esimStatusFor(account, error);
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${cls}`}
+    >
+      {label}
+    </span>
+  );
+}
+
 function ActionsCard({
   account,
   onChanged,
+  onEsimError,
 }: {
   account: AdminAccount;
   onChanged: () => void;
+  onEsimError: (error: string | null) => void;
 }) {
-  const [busy, setBusy] = useState<"retry_bics" | null>(null);
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  // Success result carries the ICCID for the green banner; failure carries the
+  // error text for the red banner (and lifts it so the status badge turns red).
+  const [result, setResult] = useState<
+    | { ok: true; iccid: string }
+    | { ok: false; text: string }
+    | null
+  >(null);
 
-  async function retryBics() {
-    setBusy("retry_bics");
-    setMsg(null);
+  async function retryEsim() {
+    setBusy(true);
+    setResult(null);
+    onEsimError(null);
     try {
-      await accountAction(account.id, "retry_bics");
-      setMsg({ ok: true, text: "BICS eSIM provisioning retried." });
-      onChanged();
+      const updated = await accountAction(account.id, "retry_bics");
+      const iccid = updated.esim_iccid ?? updated.bics_iccid ?? "—";
+      setResult({ ok: true, iccid });
+      onEsimError(null);
+      onChanged(); // reload the account so the eSIM status badge updates
     } catch (err) {
-      setMsg({
-        ok: false,
-        text: err instanceof ApiError ? err.message : "Retry failed.",
-      });
+      const text = err instanceof ApiError ? err.message : "unknown error";
+      setResult({ ok: false, text });
+      onEsimError(text);
     } finally {
-      setBusy(null);
+      setBusy(false);
     }
   }
 
@@ -796,22 +855,32 @@ function ActionsCard({
       <p className="mt-1 text-sm text-slate-500">
         Re-run eSIM provisioning. Cancel / delete live in the Danger Zone below.
       </p>
-      <div className="mt-3 flex flex-wrap gap-3">
-        <Button variant="outline" onClick={retryBics} disabled={busy !== null}>
-          {busy === "retry_bics" ? (
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <Button variant="outline" onClick={retryEsim} disabled={busy}>
+          {busy ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <RotateCcw className="h-4 w-4" />
           )}
-          Retry BICS
+          {busy ? "Provisioning eSIM…" : "Retry eSIM Provisioning"}
         </Button>
+        {busy && (
+          <span className="inline-flex items-center gap-2 text-sm text-slate-500">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Provisioning eSIM…
+          </span>
+        )}
       </div>
-      {msg && (
-        <p
-          className={`mt-3 text-sm font-medium ${msg.ok ? "text-emerald-600" : "text-red-600"}`}
-        >
-          {msg.text}
-        </p>
+      {result?.ok && (
+        <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+          eSIM provisioned successfully.{" "}
+          <span className="font-mono">ICCID: {result.iccid}</span>
+        </div>
+      )}
+      {result && !result.ok && (
+        <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          eSIM provisioning failed: {result.text}
+        </div>
       )}
     </section>
   );

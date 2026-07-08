@@ -51,7 +51,7 @@ export default function BillingPage() {
       <header className="mb-6">
         <h1 className="font-display text-2xl font-semibold">Billing Reconciliation</h1>
         <p className="text-sm text-slate-500">
-          Telnyx voice/messaging volumes vs BICS data usage for a period.
+          Telnyx voice/messaging volumes vs eSIM data usage for a period.
         </p>
       </header>
 
@@ -100,7 +100,7 @@ export default function BillingPage() {
               <Metric icon={<ImageIcon className="h-4 w-4" />} label="MMS" value={report.telnyx.mms_count.toLocaleString()} />
             </Card>
 
-            <Card title="BICS — Data" icon={<Database className="h-4 w-4" />}>
+            <Card title="eSIM — Data" icon={<Database className="h-4 w-4" />}>
               <Metric
                 icon={<Database className="h-4 w-4" />}
                 label="Total data"
