@@ -29,7 +29,7 @@ import {
   setFamilyMode,
   type Address,
 } from "@/lib/session";
-import { areaCodeFromNumber, marketForAreaCode } from "@/lib/markets";
+import { toUsE164, marketForAreaCode } from "@/lib/markets";
 import { PLANS, DEFAULT_PLAN, type Plan } from "@/lib/plans";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -174,11 +174,14 @@ export default function SignupPage() {
     // DECISION: the full port (carrier, PIN, billing zip) is Phase 2 in the
     // middleware; here we create the account + port intent and derive the
     // market from the existing number's area code.
-    const areacode = areaCodeFromNumber(currentNumber);
-    if (!areacode) {
-      setError("Please enter the number you'd like to bring, including area code.");
+    // Accept any 10-digit US number (any market/area code). Normalize to E.164
+    // so the middleware can derive the area code and never rejects on market.
+    const portNumber = toUsE164(currentNumber);
+    if (!portNumber) {
+      setError("Please enter a valid 10-digit US number to port.");
       return;
     }
+    const areacode = portNumber.slice(2, 5);
 
     setSubmitting(true);
     // Add-a-line: send the primary's email so the middleware ports this number
@@ -192,7 +195,7 @@ export default function SignupPage() {
         plan,
         service: "port",
         port: {
-          number_e164: currentNumber,
+          number_e164: portNumber,
           losing_carrier: "",
           account_number: "",
           pin: "",

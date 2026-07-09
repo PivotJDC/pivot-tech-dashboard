@@ -4,10 +4,9 @@
  * Mirrors the middleware's launched markets (src/config/markets.js):
  *   lewiston-id → 208,  kendall-il → 630 / 331
  *
- * `market` is OPTIONAL on POST /v1/accounts — any US area code is allowed. For a
- * launched area code we send its slug; for anything else we return undefined and
- * omit `market`, and the middleware defaults to "direct" and searches the chosen
- * number's area code.
+ * Any US area code is allowed (new number or port-in). For a launched area code
+ * we send its slug; for anything else we return "national" (the middleware
+ * searches the number's area code and never rejects on market).
  */
 const AREA_CODE_TO_MARKET: Record<string, string> = {
   "208": "lewiston-id",
@@ -22,8 +21,9 @@ export const SUGGESTED_AREA_CODES: { code: string; label: string }[] = [
   { code: "331", label: "Kendall, IL" },
 ];
 
-export function marketForAreaCode(areacode: string): string | undefined {
-  return AREA_CODE_TO_MARKET[areacode];
+/** Launched-market slug for an area code, or "national" for anything else. */
+export function marketForAreaCode(areacode: string): string {
+  return AREA_CODE_TO_MARKET[areacode] ?? "national";
 }
 
 /** Best-effort area code from an E.164 / dialed US number (+1AAANXXXXXX). */
@@ -33,4 +33,17 @@ export function areaCodeFromNumber(input: string): string | null {
     ? digits.slice(1)
     : digits;
   return national.length >= 3 ? national.slice(0, 3) : null;
+}
+
+/**
+ * Normalize any 10-digit US number (formatted or not, with/without a leading 1)
+ * to E.164 (+1AAANXXXXXX), or null if it isn't a 10-digit US number. Used so a
+ * port-in from any US area code reaches the middleware in E.164.
+ */
+export function toUsE164(input: string): string | null {
+  const digits = input.replace(/\D/g, "");
+  const national = digits.length === 11 && digits.startsWith("1")
+    ? digits.slice(1)
+    : digits;
+  return national.length === 10 ? `+1${national}` : null;
 }
