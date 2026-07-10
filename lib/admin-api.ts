@@ -233,6 +233,23 @@ export function getMetrics() {
   return adminRequest<Metrics>("/admin/metrics");
 }
 
+/** Current-month revenue & margin inputs (cost rates applied client-side). */
+export interface MarginMetrics {
+  subscribers: number;
+  mrr: number;
+  voice_minutes: number;
+  data_gb: number;
+  sms_count: number;
+  mms_count: number;
+  period_start: string;
+  period_end: string;
+}
+
+/** GET /admin/analytics/margin — subscribers, MRR, current-month usage volumes. */
+export function getMarginMetrics() {
+  return adminRequest<MarginMetrics>("/admin/analytics/margin");
+}
+
 export interface HourlyActivity {
   hour: number;
   calls: number;

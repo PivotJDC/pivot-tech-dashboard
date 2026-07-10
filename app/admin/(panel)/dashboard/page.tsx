@@ -11,6 +11,7 @@ import { UsageDistributionChart } from "@/components/admin/usage-distribution-ch
 import { DataVoiceChart } from "@/components/admin/data-voice-chart";
 import { MessageVolumeChart } from "@/components/admin/message-volume-chart";
 import { UsageTrendsChart } from "@/components/admin/usage-trends-chart";
+import { RevenueMarginCard } from "@/components/admin/revenue-margin-card";
 import { useAdminFetch } from "@/components/admin/use-admin-fetch";
 import { getMetrics } from "@/lib/admin-api";
 import { DEFAULT_PLAN } from "@/lib/plans";
@@ -79,6 +80,11 @@ export default function DashboardPage() {
       {/* Full-width usage trend with a day/week/month toggle. */}
       <div className="mt-4">
         <UsageTrendsChart />
+      </div>
+
+      {/* Revenue & margin — usage volumes × admin-entered vendor cost rates. */}
+      <div className="mt-4">
+        <RevenueMarginCard />
       </div>
     </div>
   );
