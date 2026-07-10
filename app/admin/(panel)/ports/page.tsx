@@ -5,16 +5,17 @@ import { Loader2 } from "lucide-react";
 
 import { StatusBadge } from "@/components/admin/status-badge";
 import { useAdminFetch } from "@/components/admin/use-admin-fetch";
-import { listPorts } from "@/lib/admin-api";
+import { listPortOrders } from "@/lib/admin-api";
 import { formatDate, formatPhone } from "@/lib/format";
 
 const FETCH_LIMIT = 100;
 const PORT_STATUSES = [
+  "draft",
   "submitted",
-  "pending",
-  "approved",
-  "completed",
-  "failed",
+  "in_process",
+  "foc_confirmed",
+  "exception",
+  "ported",
   "cancelled",
 ];
 
@@ -22,18 +23,18 @@ export default function PortsPage() {
   const [status, setStatus] = useState("");
 
   const fetcher = useCallback(
-    () => listPorts({ status, limit: FETCH_LIMIT }),
+    () => listPortOrders({ status, limit: FETCH_LIMIT }),
     [status],
   );
   const { data, loading, error } = useAdminFetch(fetcher, [status]);
 
-  const ports = data?.ports ?? [];
+  const ports = data?.port_orders ?? [];
   const total = data?.pagination.total ?? 0;
 
   return (
     <div>
       <header className="mb-6">
-        <h1 className="font-display text-2xl font-semibold">Port requests</h1>
+        <h1 className="font-display text-2xl font-semibold">Port orders</h1>
         <p className="text-sm text-slate-500">{total.toLocaleString()} total</p>
       </header>
 
@@ -61,41 +62,55 @@ export default function PortsPage() {
             <tr>
               <th className="px-4 py-3 font-medium">Number</th>
               <th className="px-4 py-3 font-medium">Carrier</th>
+              <th className="px-4 py-3 font-medium">FastPort</th>
               <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">Submitted</th>
+              <th className="px-4 py-3 font-medium">FOC date</th>
+              <th className="px-4 py-3 font-medium">Created</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {loading ? (
               <tr>
-                <td colSpan={4} className="px-4 py-10 text-center text-slate-500">
+                <td colSpan={6} className="px-4 py-10 text-center text-slate-500">
                   <Loader2 className="mx-auto h-5 w-5 animate-spin" />
                 </td>
               </tr>
             ) : error ? (
               <tr>
-                <td colSpan={4} className="px-4 py-10 text-center text-red-600">
+                <td colSpan={6} className="px-4 py-10 text-center text-red-600">
                   {error}
                 </td>
               </tr>
             ) : ports.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-4 py-10 text-center text-slate-500">
-                  No port requests match this filter.
+                <td colSpan={6} className="px-4 py-10 text-center text-slate-500">
+                  No port orders match this filter.
                 </td>
               </tr>
             ) : (
               ports.map((p) => (
                 <tr key={p.id}>
                   <td className="px-4 py-3 font-medium tabular-nums text-slate-900">
-                    {formatPhone(p.number_e164)}
+                    {formatPhone(p.phone_number)}
                   </td>
-                  <td className="px-4 py-3">{p.losing_carrier || "—"}</td>
+                  <td className="px-4 py-3">{p.carrier_name || "—"}</td>
+                  <td className="px-4 py-3">
+                    {p.fast_port_eligible ? (
+                      <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-xs font-semibold text-emerald-700">
+                        Eligible
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <StatusBadge status={p.status} />
                   </td>
                   <td className="px-4 py-3 text-slate-500">
-                    {formatDate(p.submitted_at ?? p.created_at)}
+                    {p.foc_date ? formatDate(p.foc_date) : "—"}
+                  </td>
+                  <td className="px-4 py-3 text-slate-500">
+                    {formatDate(p.created_at)}
                   </td>
                 </tr>
               ))

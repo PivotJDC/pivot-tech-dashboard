@@ -18,7 +18,13 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { UsStatesSelect } from "@/components/us-states-select";
-import { createAccount, ApiError, type ServiceChoice } from "@/lib/api";
+import {
+  createAccount,
+  checkPortability,
+  ApiError,
+  type ServiceChoice,
+  type PortabilityResult,
+} from "@/lib/api";
 import {
   clearAddLine,
   getAddLine,
@@ -71,6 +77,12 @@ export default function SignupPage() {
   const [planLocked, setPlanLocked] = useState(false);
   const [service, setService] = useState<ServiceChoice>("new");
   const [currentNumber, setCurrentNumber] = useState("");
+  // FastPort: the portability result for currentNumber, and the losing-carrier
+  // authorization details we collect once a number is confirmed portable.
+  const [portability, setPortability] = useState<PortabilityResult | null>(null);
+  const [checkingPort, setCheckingPort] = useState(false);
+  const [carrierAccountNumber, setCarrierAccountNumber] = useState("");
+  const [transferPin, setTransferPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   // The API reported this email already has an account — offer "add a line".
@@ -157,6 +169,46 @@ export default function SignupPage() {
     setStep(3);
   }
 
+  // FastPort: verify the number can be ported (and whether it's same-day
+  // FastPort) before we collect carrier details. Public endpoint — no account
+  // needed. On success we reveal the carrier-detail fields.
+  async function handleCheckPortability() {
+    setError(null);
+    const portNumber = toUsE164(currentNumber);
+    if (!portNumber) {
+      setError("Please enter a valid 10-digit US number to port.");
+      return;
+    }
+    setCheckingPort(true);
+    try {
+      const result = await checkPortability(portNumber);
+      setPortability(result);
+      if (!result.portable) {
+        setError(
+          result.not_portable_reason
+            ? `This number can't be ported: ${result.not_portable_reason}`
+            : "This number can't be ported to MobilityNet.",
+        );
+      }
+    } catch (err) {
+      setPortability(null);
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Couldn't check that number right now. Please try again.",
+      );
+    } finally {
+      setCheckingPort(false);
+    }
+  }
+
+  // Carrier authorization details are required once the number is portable.
+  const portDetailsValid = Boolean(
+    portability?.portable
+      && carrierAccountNumber.trim()
+      && transferPin.trim(),
+  );
+
   async function handleSubmit(addLine = false) {
     setError(null);
     setDuplicateEmail(false);
@@ -171,14 +223,23 @@ export default function SignupPage() {
     }
 
     // Port-in: create the account now from the number they're bringing over.
-    // DECISION: the full port (carrier, PIN, billing zip) is Phase 2 in the
-    // middleware; here we create the account + port intent and derive the
-    // market from the existing number's area code.
+    // The temp DID assigned at account creation gives instant service; the
+    // middleware opens the FastPort port order alongside it and swaps the ported
+    // number in once the port completes.
     // Accept any 10-digit US number (any market/area code). Normalize to E.164
     // so the middleware can derive the area code and never rejects on market.
     const portNumber = toUsE164(currentNumber);
     if (!portNumber) {
       setError("Please enter a valid 10-digit US number to port.");
+      return;
+    }
+    // Must have confirmed portability + collected the carrier authorization.
+    if (!portability?.portable) {
+      setError('Please check your number is portable first.');
+      return;
+    }
+    if (!portDetailsValid) {
+      setError("Enter your current carrier account number and transfer PIN.");
       return;
     }
     const areacode = portNumber.slice(2, 5);
@@ -196,10 +257,11 @@ export default function SignupPage() {
         service: "port",
         port: {
           number_e164: portNumber,
-          losing_carrier: "",
-          account_number: "",
-          pin: "",
+          losing_carrier: portability.carrier_name ?? "",
+          account_number: carrierAccountNumber.trim(),
+          pin: transferPin.trim(),
           billing_zip: serviceAddress.zip,
+          auth_name: `${firstName} ${lastName}`.trim(),
         },
         first_name: firstName,
         last_name: lastName,
@@ -429,17 +491,86 @@ export default function SignupPage() {
               />
 
               {service === "port" && (
-                <div className="space-y-2 pt-2">
-                  <Label htmlFor="current-number">Your current number</Label>
-                  <Input
-                    id="current-number"
-                    type="tel"
-                    inputMode="tel"
-                    autoComplete="tel"
-                    placeholder="(208) 555-0100"
-                    value={currentNumber}
-                    onChange={(e) => setCurrentNumber(e.target.value)}
-                  />
+                <div className="space-y-4 pt-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="current-number">Your current number</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="current-number"
+                        type="tel"
+                        inputMode="tel"
+                        autoComplete="tel"
+                        placeholder="(208) 555-0100"
+                        value={currentNumber}
+                        onChange={(e) => {
+                          setCurrentNumber(e.target.value);
+                          // Any edit invalidates a prior portability result.
+                          setPortability(null);
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleCheckPortability}
+                        disabled={checkingPort || !currentNumber.trim()}
+                      >
+                        {checkingPort && <Loader2 className="h-4 w-4 animate-spin" />}
+                        Check
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      We&apos;ll confirm your number can move to MobilityNet before
+                      you continue.
+                    </p>
+                  </div>
+
+                  {portability?.portable && (
+                    <div className="space-y-4 rounded-lg border-2 border-primary/30 bg-accent/40 p-4">
+                      <div className="flex items-start gap-2 text-sm font-medium">
+                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                        <span>
+                          Good news — this number can be ported
+                          {portability.carrier_name
+                            ? ` from ${portability.carrier_name}`
+                            : ""}
+                          .
+                          {portability.fast_portable && (
+                            <span className="ml-1 rounded bg-primary/15 px-1.5 py-0.5 text-xs font-semibold text-primary">
+                              FastPort · same-day
+                            </span>
+                          )}
+                        </span>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="carrier-account">
+                          Current carrier account number
+                        </Label>
+                        <Input
+                          id="carrier-account"
+                          autoComplete="off"
+                          placeholder="Account number with your current carrier"
+                          value={carrierAccountNumber}
+                          onChange={(e) => setCarrierAccountNumber(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="transfer-pin">Transfer PIN / passcode</Label>
+                        <Input
+                          id="transfer-pin"
+                          inputMode="numeric"
+                          autoComplete="off"
+                          placeholder="Port-out PIN from your current carrier"
+                          value={transferPin}
+                          onChange={(e) => setTransferPin(e.target.value)}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Ask your current carrier for your account number and
+                          transfer PIN (sometimes called a port-out PIN).
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </RadioGroup>
@@ -504,7 +635,7 @@ export default function SignupPage() {
               <Button
                 className="flex-[2]"
                 onClick={() => handleSubmit()}
-                disabled={submitting}
+                disabled={submitting || (service === "port" && !portDetailsValid)}
               >
                 {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
                 {service === "new" ? "Choose a number" : "Create my account"}

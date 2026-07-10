@@ -164,14 +164,19 @@ export interface Did {
   created_at?: string;
 }
 
-export interface PortRequest {
+/** A FastPort port order (port_orders table). Secrets are never returned. */
+export interface PortOrder {
   id: string;
-  number_e164: string;
-  losing_carrier: string;
+  account_id: string;
+  phone_number: string;
   status: string;
-  submitted_at?: string | null;
+  fast_port_eligible?: boolean;
+  carrier_name?: string | null;
+  foc_date?: string | null;
+  temp_did?: string | null;
+  rejection_reason?: string | null;
   created_at?: string;
-  failure_reason?: string | null;
+  completed_at?: string | null;
 }
 
 export interface AccountFilters {
@@ -578,10 +583,16 @@ export function listDids(
   );
 }
 
-export function listPorts(
+/** GET /admin/ports — list FastPort port orders (secrets stripped). */
+export function listPortOrders(
   filters: { status?: string; limit?: number; offset?: number } = {},
 ) {
-  return adminRequest<{ ports: PortRequest[]; pagination: Pagination }>(
+  return adminRequest<{ port_orders: PortOrder[]; pagination: Pagination }>(
     `/admin/ports${qs(filters)}`,
   );
+}
+
+/** GET /admin/ports/:id — one port order detail. */
+export function getPortOrder(id: string) {
+  return adminRequest<PortOrder>(`/admin/ports/${encodeURIComponent(id)}`);
 }

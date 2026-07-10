@@ -152,6 +152,16 @@ export interface PortDetails {
   account_number: string;
   pin: string;
   billing_zip: string;
+  /** Authorized person on the losing-carrier account (FastPort). */
+  auth_name?: string;
+}
+
+/** Result of POST /v1/port/check — FastPort portability lookup. */
+export interface PortabilityResult {
+  portable: boolean;
+  fast_portable: boolean;
+  carrier_name: string | null;
+  not_portable_reason: string | null;
 }
 
 export interface CreateAccountInput {
@@ -206,6 +216,20 @@ export function createAccount(input: CreateAccountInput): Promise<Account> {
   return request<Account>("/v1/accounts", {
     method: "POST",
     body: JSON.stringify(input),
+  });
+}
+
+/**
+ * POST /v1/port/check — FastPort portability lookup (public, pre-signup).
+ * Tells us whether a number can be ported in and whether it qualifies for
+ * same-day FastPort activation.
+ */
+export function checkPortability(
+  phoneNumber: string,
+): Promise<PortabilityResult> {
+  return request<PortabilityResult>("/v1/port/check", {
+    method: "POST",
+    body: JSON.stringify({ phone_number: phoneNumber }),
   });
 }
 
