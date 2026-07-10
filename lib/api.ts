@@ -361,6 +361,61 @@ export function markVoicemailRead(id: string): Promise<Voicemail> {
   });
 }
 
+// --- Cloud Softphone Custom Web Tab (/v1/app) ----------------------------
+// The embedded-browser voicemail page has no dashboard session; it authenticates
+// with the subscriber's SIP credentials and holds the returned JWT in component
+// state, passing it explicitly on each call (never the sessionStorage token).
+
+export interface AppAuthResult {
+  token: string;
+  account_id: string;
+  phone_e164: string | null;
+}
+
+export interface AppVoicemail {
+  id: string;
+  caller_number: string | null;
+  caller_name: string | null;
+  duration_seconds: number | null;
+  transcription: string | null;
+  is_read: boolean;
+  created_at: string;
+  /** Signed, directly-playable S3 URL (null if unavailable). */
+  recording_url: string | null;
+}
+
+/** POST /v1/app/auth — exchange SIP credentials for a customer JWT. */
+export function appAuth(
+  username: string,
+  password: string,
+): Promise<AppAuthResult> {
+  return request<AppAuthResult>("/v1/app/auth", {
+    method: "POST",
+    body: JSON.stringify({ username, password }),
+  });
+}
+
+/** GET /v1/app/voicemails — voicemails + transcription + playback URLs (JWT). */
+export function getAppVoicemails(
+  token: string,
+): Promise<{ voicemails: AppVoicemail[]; unread: number }> {
+  return request<{ voicemails: AppVoicemail[]; unread: number }>(
+    "/v1/app/voicemails",
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+}
+
+/** PATCH /v1/account/voicemails/:id/read — mark read with the app's JWT. */
+export function markAppVoicemailRead(
+  id: string,
+  token: string,
+): Promise<AppVoicemail> {
+  return request<AppVoicemail>(
+    `/v1/account/voicemails/${encodeURIComponent(id)}/read`,
+    { method: "PATCH", headers: { Authorization: `Bearer ${token}` } },
+  );
+}
+
 /** DELETE /v1/account/voicemails/:id — delete one (owner JWT). */
 export function deleteVoicemail(id: string): Promise<{ deleted: boolean; id: string }> {
   return request<{ deleted: boolean; id: string }>(
