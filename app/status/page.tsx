@@ -3,9 +3,11 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { QRCodeSVG } from "qrcode.react";
 import {
   CheckCircle2,
   Clock,
+  Info,
   Loader2,
   RefreshCw,
   XCircle,
@@ -20,10 +22,19 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { ApiError, getAccountStatus, type AccountStatus } from "@/lib/api";
+import {
+  ApiError, getAccountStatus, type Account, type AccountStatus,
+} from "@/lib/api";
 import { getAccount } from "@/lib/session";
 
-const POLL_MS = 10_000;
+// Poll every 5s while activation is in flight; we stop once the line is fully
+// active AND the eSIM (bics) is provisioned.
+const POLL_MS = 5_000;
+
+/** True once the line is active and cellular data (eSIM) is provisioned. */
+function isReady(status: AccountStatus | null): boolean {
+  return status?.status === "active" && status?.bics_provisioned === true;
+}
 
 export default function StatusPage() {
   return (
@@ -36,21 +47,34 @@ export default function StatusPage() {
 function StatusView() {
   const params = useSearchParams();
   const [accountId, setAccountId] = useState<string | null>(null);
+  const [account, setAccount] = useState<Account | null>(null);
   const [status, setStatus] = useState<AccountStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Resolve the account id from ?id= or the saved account.
+  // Resolve the account id from ?id= or the saved account. The saved account
+  // (from signup) also carries the eSIM + dialer QR payloads we reveal once ready.
   useEffect(() => {
-    setAccountId(params.get("id") ?? getAccount()?.id ?? null);
+    const saved = getAccount();
+    setAccount(saved);
+    setAccountId(params.get("id") ?? saved?.id ?? null);
   }, [params]);
+
+  const stopPolling = useCallback(() => {
+    if (timer.current) {
+      clearInterval(timer.current);
+      timer.current = null;
+    }
+  }, []);
 
   const poll = useCallback(async (id: string) => {
     try {
       const next = await getAccountStatus(id);
       setStatus(next);
       setError(null);
+      // Fully provisioned — stop polling; the QRs are shown and won't change.
+      if (isReady(next)) stopPolling();
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -60,19 +84,26 @@ function StatusView() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [stopPolling]);
 
   useEffect(() => {
     if (!accountId) {
       setLoading(false);
-      return;
+      return undefined;
     }
     poll(accountId);
     timer.current = setInterval(() => poll(accountId), POLL_MS);
-    return () => {
-      if (timer.current) clearInterval(timer.current);
-    };
-  }, [accountId, poll]);
+    return stopPolling;
+  }, [accountId, poll, stopPolling]);
+
+  const ready = isReady(status);
+  // When the account is active but the eSIM isn't provisioned yet, keep showing
+  // the "setting up" copy rather than a premature "all set".
+  const displayKey = ready
+    ? "active"
+    : status?.status === "active"
+      ? "pending"
+      : status?.status ?? "pending";
 
   return (
     <main className="brand-dark min-h-dvh">
@@ -83,7 +114,7 @@ function StatusView() {
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {accountId
-            ? "This page updates automatically every 10 seconds."
+            ? "This page updates automatically every 5 seconds."
             : "We couldn't find an account on this device."}
         </p>
       </div>
@@ -108,14 +139,24 @@ function StatusView() {
         </Card>
       ) : (
         <div className="space-y-6">
-          <ActivationCard status={status} />
+          <ActivationCard statusKey={displayKey} />
+          {/* Once the line is active AND the eSIM is provisioned, reveal the
+              setup QRs so the customer can finish activating on their phone. */}
+          {ready && <SetupCard account={account} phoneE164={status?.phone_e164} />}
           {status?.port && <PortCard port={status.port} />}
 
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <RefreshCw className="h-3 w-3" />
-              Auto-refreshing every 10s
-            </span>
+            {ready ? (
+              <span className="flex items-center gap-1.5 text-primary">
+                <CheckCircle2 className="h-3 w-3" />
+                Activation complete
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5">
+                <RefreshCw className="h-3 w-3 animate-spin" />
+                Checking every 5s…
+              </span>
+            )}
             {error && <span className="text-destructive">{error}</span>}
           </div>
         </div>
@@ -152,9 +193,8 @@ const ACTIVATION_COPY: Record<
   },
 };
 
-function ActivationCard({ status }: { status: AccountStatus | null }) {
-  const key = status?.status ?? "pending";
-  const copy = ACTIVATION_COPY[key] ?? ACTIVATION_COPY.pending;
+function ActivationCard({ statusKey }: { statusKey: string }) {
+  const copy = ACTIVATION_COPY[statusKey] ?? ACTIVATION_COPY.pending;
   const Icon =
     copy.tone === "ok" ? CheckCircle2 : copy.tone === "bad" ? XCircle : Clock;
 
@@ -180,6 +220,87 @@ function ActivationCard({ status }: { status: AccountStatus | null }) {
         </div>
       </CardHeader>
     </Card>
+  );
+}
+
+/** +12085550100 → (208) 555-0100. */
+function formatNumber(e164?: string): string {
+  if (!e164) return "";
+  const d = e164.replace(/\D/g, "");
+  const n = d.length === 11 && d.startsWith("1") ? d.slice(1) : d;
+  if (n.length !== 10) return e164;
+  return `(${n.slice(0, 3)}) ${n.slice(3, 6)}-${n.slice(6)}`;
+}
+
+/**
+ * Setup QRs shown once the line is fully active + provisioned. The payloads come
+ * from the account saved at signup: the eSIM LPA activation code (rendered to a
+ * QR client-side) and the dialer provisioning QR (a self-contained data: URL).
+ */
+function SetupCard({
+  account,
+  phoneE164,
+}: {
+  account: Account | null;
+  phoneE164?: string;
+}) {
+  const esimCode = account?.esim?.activationCode;
+  const dialerQr = account?.provisioning?.qr_code_url;
+  const number = formatNumber(phoneE164 ?? account?.phone_e164);
+
+  return (
+    <Card className="border-primary/30">
+      <CardHeader>
+        <CardTitle className="text-lg">Finish setting up your phone</CardTitle>
+        <CardDescription>
+          {number ? `Your number: ${number}` : "Scan these on your phone to activate."}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-6 sm:grid-cols-2">
+        {/* eSIM install QR */}
+        <div className="flex flex-col items-center gap-3 text-center">
+          <p className="text-sm font-semibold">1. Install eSIM</p>
+          {esimCode ? (
+            <div className="rounded-lg border bg-white p-3">
+              <QRCodeSVG value={esimCode} size={150} aria-label="eSIM installation QR code" />
+            </div>
+          ) : (
+            <QrPlaceholder note="eSIM is provisioning — check back shortly." />
+          )}
+          <p className="text-xs text-muted-foreground">
+            Settings → Cellular → Add eSIM → Scan QR
+          </p>
+        </div>
+
+        {/* Dialer provisioning QR */}
+        <div className="flex flex-col items-center gap-3 text-center">
+          <p className="text-sm font-semibold">2. Activate your dialer</p>
+          {dialerQr ? (
+            // qr_code_url is a self-contained data: URL from the middleware.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={dialerQr}
+              alt="Dialer provisioning QR code"
+              className="h-[168px] w-[168px] rounded-lg border bg-white p-2"
+            />
+          ) : (
+            <QrPlaceholder note="Open the Pivot Mobility app, then refresh." />
+          )}
+          <p className="text-xs text-muted-foreground">
+            Open the Pivot Mobility app, then scan.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function QrPlaceholder({ note }: { note: string }) {
+  return (
+    <div className="flex h-[168px] w-[168px] flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed bg-muted/40 p-4 text-center">
+      <Info className="h-7 w-7 text-primary" />
+      <span className="text-xs text-muted-foreground">{note}</span>
+    </div>
   );
 }
 

@@ -203,6 +203,8 @@ export interface AccountStatus {
   id: string;
   status: string;
   phone_e164?: string;
+  /** True once the BICS eSIM (cellular data) is provisioned. */
+  bics_provisioned?: boolean;
   port?: {
     status: string;
     failure_reason?: string;
