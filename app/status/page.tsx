@@ -96,14 +96,13 @@ function StatusView() {
     return stopPolling;
   }, [accountId, poll, stopPolling]);
 
+  const isActive = status?.status === "active";
+  const bicsProvisioned = status?.bics_provisioned === true;
+  // Fully done (line active + eSIM provisioned) drives stop-polling + the footer.
   const ready = isReady(status);
-  // When the account is active but the eSIM isn't provisioned yet, keep showing
-  // the "setting up" copy rather than a premature "all set".
-  const displayKey = ready
-    ? "active"
-    : status?.status === "active"
-      ? "pending"
-      : status?.status ?? "pending";
+  // The line (voice/text) is active as soon as status flips; the eSIM step shows
+  // its own provisioning state, so use the raw status for the header copy.
+  const displayKey = status?.status ?? "pending";
 
   return (
     <main className="brand-dark min-h-dvh">
@@ -140,9 +139,16 @@ function StatusView() {
       ) : (
         <div className="space-y-6">
           <ActivationCard statusKey={displayKey} />
-          {/* Once the line is active AND the eSIM is provisioned, reveal the
-              setup QRs so the customer can finish activating on their phone. */}
-          {ready && <SetupCard account={account} phoneE164={status?.phone_e164} />}
+          {/* As soon as the line is active, reveal the setup card so the customer
+              can start dialer setup. The eSIM QR inside waits for bics_provisioned
+              (it needs the provisioned eSIM), but the dialer QR shows right away. */}
+          {isActive && (
+            <SetupCard
+              account={account}
+              phoneE164={status?.phone_e164}
+              bicsProvisioned={bicsProvisioned}
+            />
+          )}
           {status?.port && <PortCard port={status.port} />}
 
           <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -240,9 +246,11 @@ function formatNumber(e164?: string): string {
 function SetupCard({
   account,
   phoneE164,
+  bicsProvisioned,
 }: {
   account: Account | null;
   phoneE164?: string;
+  bicsProvisioned: boolean;
 }) {
   const esimCode = account?.esim?.activationCode;
   const dialerQr = account?.provisioning?.qr_code_url;
@@ -260,12 +268,14 @@ function SetupCard({
         {/* eSIM install QR */}
         <div className="flex flex-col items-center gap-3 text-center">
           <p className="text-sm font-semibold">1. Install eSIM</p>
-          {esimCode ? (
+          {/* The eSIM QR needs a provisioned eSIM — hold it until bics_provisioned
+              even though the line (and dialer QR) are already active. */}
+          {bicsProvisioned && esimCode ? (
             <div className="rounded-lg border bg-white p-3">
               <QRCodeSVG value={esimCode} size={150} aria-label="eSIM installation QR code" />
             </div>
           ) : (
-            <QrPlaceholder note="eSIM is provisioning — check back shortly." />
+            <QrPlaceholder note="eSIM is still provisioning — check back shortly." />
           )}
           <p className="text-xs text-muted-foreground">
             Settings → Cellular → Add eSIM → Scan QR
