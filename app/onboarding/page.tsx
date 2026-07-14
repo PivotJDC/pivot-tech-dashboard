@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Info } from "lucide-react";
+import { ArrowRight, Info, Lightbulb } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 
 import { Button } from "@/components/ui/button";
@@ -209,6 +209,31 @@ export default function OnboardingPage() {
             <PlaceholderQr label="QR pending" sublabel="Refresh in a moment" />
           )}
         </StepCard>
+
+        {/* Tip — make the dialer the phone the customer reaches for by default. */}
+        <Card className="border-primary/30 bg-accent/30">
+          <CardContent className="flex flex-col gap-4 py-6">
+            <div className="flex items-center gap-2">
+              <Lightbulb className="h-5 w-5 shrink-0 text-primary" />
+              <p className="font-semibold">
+                Tip: Move the MobilityNet app to your home screen dock for easy
+                access.
+              </p>
+            </div>
+            <div className="space-y-3 text-sm text-muted-foreground">
+              <p>
+                <span className="font-medium text-foreground">iPhone:</span>{" "}
+                Long-press the Phone app in your dock, drag it out. Then drag
+                Cloud Softphone into the dock in its place.
+              </p>
+              <p>
+                <span className="font-medium text-foreground">Android:</span>{" "}
+                Set Cloud Softphone as your default phone app: Settings → Apps →
+                Default Apps → Phone App → Cloud Softphone.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Family plan: after this line is set up, offer to add another. Loops
