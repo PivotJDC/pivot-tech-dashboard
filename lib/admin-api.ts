@@ -266,6 +266,10 @@ export interface VendorCosts {
     mms_outbound_count: number;
     active_dids: number;
   };
+  acrobits: {
+    /** Subscribers with voice or messaging traffic on the dialer this month. */
+    active_users: number;
+  };
   subscribers: number;
   mrr: number;
 }

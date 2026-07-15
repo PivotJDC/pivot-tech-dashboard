@@ -68,8 +68,7 @@ const DEFAULT_RATES: AllRates = {
     mmsOut: "0.015", // $ per outbound message
   },
   acrobits: {
-    license: "0", // $ per month (TBC with Acrobits)
-    perSeat: "0", // $ per subscriber
+    perSeat: "0.30", // $ per active user (with dialer traffic) / month
   },
 };
 
@@ -93,8 +92,7 @@ const RATE_FIELDS: Record<Vendor, { key: string; label: string; unit: string; st
     { key: "mmsOut", label: "MMS outbound", unit: "$ / msg", step: "0.001" },
   ],
   acrobits: [
-    { key: "license", label: "License fee", unit: "$ / month", step: "0.01" },
-    { key: "perSeat", label: "Per-seat fee", unit: "$ / subscriber", step: "0.01" },
+    { key: "perSeat", label: "Per active user", unit: "$ / user·mo", step: "0.01" },
   ],
 };
 
@@ -124,6 +122,7 @@ const EMPTY: VendorCosts = {
     mms_outbound_count: 0,
     active_dids: 0,
   },
+  acrobits: { active_users: 0 },
   subscribers: 0,
   mrr: 0,
 };
@@ -268,16 +267,10 @@ export function RevenueMarginCard() {
 
     const acrobitsRows: Row[] = [
       {
-        label: "Monthly license",
-        units: "1",
-        rate: r.acrobits.license,
-        cost: r.acrobits.license,
-      },
-      {
-        label: "Per-seat",
-        units: `${num(d.subscribers)} subscribers`,
+        label: "Active users (with traffic)",
+        units: `${num(d.acrobits.active_users)}`,
         rate: r.acrobits.perSeat,
-        cost: d.subscribers * r.acrobits.perSeat,
+        cost: d.acrobits.active_users * r.acrobits.perSeat,
       },
     ];
 
