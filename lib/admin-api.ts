@@ -250,6 +250,28 @@ export function getMarginMetrics() {
   return adminRequest<MarginMetrics>("/admin/analytics/margin");
 }
 
+/** Per-vendor current-month usage volumes (rates applied client-side). */
+export interface VendorCosts {
+  bics: {
+    active_sims: number;
+    new_sims: number;
+    data_mb: number;
+  };
+  telnyx: {
+    voice_minutes: number;
+    sms_count: number;
+    mms_count: number;
+    active_dids: number;
+  };
+  subscribers: number;
+  mrr: number;
+}
+
+/** GET /admin/analytics/vendor-costs — per-vendor volumes + subscribers + MRR. */
+export function getVendorCosts() {
+  return adminRequest<VendorCosts>("/admin/analytics/vendor-costs");
+}
+
 export interface HourlyActivity {
   hour: number;
   calls: number;
