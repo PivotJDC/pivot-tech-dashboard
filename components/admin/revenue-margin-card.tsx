@@ -57,11 +57,15 @@ const DEFAULT_RATES: AllRates = {
     data2: "0.0017", // $ per MB (carrier 2)
   },
   telnyx: {
-    voice: "0.005", // $ per minute
-    sms: "0.004", // $ per message
-    mms: "0.01", // $ per message
+    voiceIn: "0.0035", // $ per inbound minute
+    voiceOut: "0.0135", // $ per outbound minute
     did: "1.00", // $ per number / month
-    e911: "1.50", // $ per address / month
+    cnam: "0.40", // $ per number / month
+    e911: "1.50", // $ per number / month
+    smsIn: "0.004", // $ per inbound message
+    smsOut: "0.004", // $ per outbound message
+    mmsIn: "0.005", // $ per inbound message
+    mmsOut: "0.015", // $ per outbound message
   },
   acrobits: {
     license: "0", // $ per month (TBC with Acrobits)
@@ -78,11 +82,15 @@ const RATE_FIELDS: Record<Vendor, { key: string; label: string; unit: string; st
     { key: "data2", label: "Data rate (carrier 2)", unit: "$ / MB", step: "0.0001" },
   ],
   telnyx: [
-    { key: "voice", label: "Voice", unit: "$ / min", step: "0.001" },
-    { key: "sms", label: "SMS", unit: "$ / msg", step: "0.001" },
-    { key: "mms", label: "MMS", unit: "$ / msg", step: "0.001" },
+    { key: "voiceIn", label: "Inbound voice", unit: "$ / min", step: "0.0001" },
+    { key: "voiceOut", label: "Outbound voice", unit: "$ / min", step: "0.0001" },
     { key: "did", label: "DID", unit: "$ / number·mo", step: "0.01" },
-    { key: "e911", label: "E911", unit: "$ / address·mo", step: "0.01" },
+    { key: "cnam", label: "CNAM", unit: "$ / number·mo", step: "0.01" },
+    { key: "e911", label: "E911", unit: "$ / number·mo", step: "0.01" },
+    { key: "smsIn", label: "SMS inbound", unit: "$ / msg", step: "0.001" },
+    { key: "smsOut", label: "SMS outbound", unit: "$ / msg", step: "0.001" },
+    { key: "mmsIn", label: "MMS inbound", unit: "$ / msg", step: "0.001" },
+    { key: "mmsOut", label: "MMS outbound", unit: "$ / msg", step: "0.001" },
   ],
   acrobits: [
     { key: "license", label: "License fee", unit: "$ / month", step: "0.01" },
@@ -106,9 +114,15 @@ interface Row {
 }
 
 const EMPTY: VendorCosts = {
-  bics: { active_sims: 0, new_sims: 0, data_mb: 0 },
+  bics: { active_sims: 0, new_sims_this_month: 0, data_mb: 0 },
   telnyx: {
-    voice_minutes: 0, sms_count: 0, mms_count: 0, active_dids: 0,
+    inbound_voice_minutes: 0,
+    outbound_voice_minutes: 0,
+    sms_inbound_count: 0,
+    sms_outbound_count: 0,
+    mms_inbound_count: 0,
+    mms_outbound_count: 0,
+    active_dids: 0,
   },
   subscribers: 0,
   mrr: 0,
@@ -168,15 +182,15 @@ export function RevenueMarginCard() {
     const bicsRows: Row[] = [
       {
         label: "SIM orders (new this month)",
-        units: `${num(d.bics.new_sims)}`,
+        units: `${num(d.bics.new_sims_this_month)}`,
         rate: r.bics.simOrder,
-        cost: d.bics.new_sims * r.bics.simOrder,
+        cost: d.bics.new_sims_this_month * r.bics.simOrder,
       },
       {
         label: "SIM activations",
-        units: `${num(d.bics.new_sims)}`,
+        units: `${num(d.bics.new_sims_this_month)}`,
         rate: r.bics.simActivation,
-        cost: d.bics.new_sims * r.bics.simActivation,
+        cost: d.bics.new_sims_this_month * r.bics.simActivation,
       },
       {
         label: "SIM management (active SIMs)",
@@ -195,28 +209,53 @@ export function RevenueMarginCard() {
 
     const telnyxRows: Row[] = [
       {
-        label: "Voice minutes",
-        units: `${num(d.telnyx.voice_minutes)}`,
-        rate: r.telnyx.voice,
-        cost: d.telnyx.voice_minutes * r.telnyx.voice,
+        label: "Inbound voice minutes",
+        units: `${num(d.telnyx.inbound_voice_minutes)}`,
+        rate: r.telnyx.voiceIn,
+        cost: d.telnyx.inbound_voice_minutes * r.telnyx.voiceIn,
       },
       {
-        label: "SMS",
-        units: `${num(d.telnyx.sms_count)}`,
-        rate: r.telnyx.sms,
-        cost: d.telnyx.sms_count * r.telnyx.sms,
+        label: "Outbound voice minutes",
+        units: `${num(d.telnyx.outbound_voice_minutes)}`,
+        rate: r.telnyx.voiceOut,
+        cost: d.telnyx.outbound_voice_minutes * r.telnyx.voiceOut,
       },
       {
-        label: "MMS",
-        units: `${num(d.telnyx.mms_count)}`,
-        rate: r.telnyx.mms,
-        cost: d.telnyx.mms_count * r.telnyx.mms,
+        label: "SMS inbound",
+        units: `${num(d.telnyx.sms_inbound_count)}`,
+        rate: r.telnyx.smsIn,
+        cost: d.telnyx.sms_inbound_count * r.telnyx.smsIn,
+      },
+      {
+        label: "SMS outbound",
+        units: `${num(d.telnyx.sms_outbound_count)}`,
+        rate: r.telnyx.smsOut,
+        cost: d.telnyx.sms_outbound_count * r.telnyx.smsOut,
+      },
+      {
+        label: "MMS inbound",
+        units: `${num(d.telnyx.mms_inbound_count)}`,
+        rate: r.telnyx.mmsIn,
+        cost: d.telnyx.mms_inbound_count * r.telnyx.mmsIn,
+      },
+      {
+        label: "MMS outbound",
+        units: `${num(d.telnyx.mms_outbound_count)}`,
+        rate: r.telnyx.mmsOut,
+        cost: d.telnyx.mms_outbound_count * r.telnyx.mmsOut,
       },
       {
         label: "DID rental",
         units: `${num(d.telnyx.active_dids)}`,
         rate: r.telnyx.did,
         cost: d.telnyx.active_dids * r.telnyx.did,
+      },
+      {
+        // One CNAM listing per active number.
+        label: "CNAM",
+        units: `${num(d.telnyx.active_dids)}`,
+        rate: r.telnyx.cnam,
+        cost: d.telnyx.active_dids * r.telnyx.cnam,
       },
       {
         // One E911 address per active number (no separate DB count yet).

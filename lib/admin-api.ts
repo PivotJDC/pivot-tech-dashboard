@@ -254,13 +254,16 @@ export function getMarginMetrics() {
 export interface VendorCosts {
   bics: {
     active_sims: number;
-    new_sims: number;
+    new_sims_this_month: number;
     data_mb: number;
   };
   telnyx: {
-    voice_minutes: number;
-    sms_count: number;
-    mms_count: number;
+    inbound_voice_minutes: number;
+    outbound_voice_minutes: number;
+    sms_inbound_count: number;
+    sms_outbound_count: number;
+    mms_inbound_count: number;
+    mms_outbound_count: number;
     active_dids: number;
   };
   subscribers: number;
