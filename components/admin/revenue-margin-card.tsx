@@ -1,13 +1,14 @@
 "use client";
 
 /**
- * Revenue & Margin — vendor-specific cost breakdown.
+ * Revenue & Margin — vendor-specific cost breakdown with per-vendor billing
+ * periods.
  *
- * Pulls current-month per-vendor usage volumes from GET /admin/analytics/
- * vendor-costs, then applies each vendor's own COST rates (BICS, Telnyx,
- * Acrobits) — admin-entered and persisted to localStorage — to compute cost,
- * gross margin, and margin %. A tab per vendor shows its editable rates and a
- * line-item cost breakdown; the summary + chart are always visible.
+ * Each vendor bills on its own cycle, so each tab (BICS / Telnyx / Acrobits) has
+ * its own From/To date range (with This Month / Last Month presets), and its
+ * usage is fetched for that range. Rates are admin-entered and persisted to
+ * localStorage; the summary + chart apply them to compute cost and margin. The
+ * plan revenue is approximated over the widest of the three periods.
  */
 import {
   useCallback, useEffect, useMemo, useState,
@@ -25,14 +26,17 @@ import {
 } from "recharts";
 
 import { useAdminFetch } from "@/components/admin/use-admin-fetch";
-import { getVendorCosts, type VendorCosts } from "@/lib/admin-api";
+import { getVendorCosts, type VendorCosts, type DateRange } from "@/lib/admin-api";
 
-const STORAGE_KEY = "pivot.admin.vendorRates";
+const RATES_KEY = "pivot.admin.vendorRates";
+const RANGES_KEY = "pivot.admin.vendorRanges";
 
 const VENDORS = ["bics", "telnyx", "acrobits"] as const;
 type Vendor = (typeof VENDORS)[number];
 type RateMap = Record<string, string>;
 type AllRates = Record<Vendor, RateMap>;
+type Range = { from: string; to: string };
+type AllRanges = Record<Vendor, Range>;
 
 const VENDOR_LABEL: Record<Vendor, string> = {
   bics: "BICS",
@@ -47,28 +51,27 @@ const COLORS = {
   revenue: "#22c55e", // green
 };
 
-// Default vendor cost rates (USD).
 const DEFAULT_RATES: AllRates = {
   bics: {
-    simOrder: "420.00", // $ per SIM (one-time, new this month)
-    simActivation: "0.30", // $ per SIM
-    simMgmt: "0.10", // $ per SIM / month
-    data1: "0.0012", // $ per MB (carrier 1)
-    data2: "0.0017", // $ per MB (carrier 2)
+    simOrder: "420.00",
+    simActivation: "0.30",
+    simMgmt: "0.10",
+    data1: "0.0012",
+    data2: "0.0017",
   },
   telnyx: {
-    voiceIn: "0.0035", // $ per inbound minute
-    voiceOut: "0.0135", // $ per outbound minute
-    did: "1.00", // $ per number / month
-    cnam: "0.40", // $ per number / month
-    e911: "1.50", // $ per number / month
-    smsIn: "0.004", // $ per inbound message
-    smsOut: "0.004", // $ per outbound message
-    mmsIn: "0.005", // $ per inbound message
-    mmsOut: "0.015", // $ per outbound message
+    voiceIn: "0.0035",
+    voiceOut: "0.0135",
+    did: "1.00",
+    cnam: "0.40",
+    e911: "1.50",
+    smsIn: "0.004",
+    smsOut: "0.004",
+    mmsIn: "0.005",
+    mmsOut: "0.015",
   },
   acrobits: {
-    perSeat: "0.30", // $ per active user (with dialer traffic) / month
+    perSeat: "0.30",
   },
 };
 
@@ -104,6 +107,43 @@ const parseRate = (v: string) => {
   return Number.isFinite(n) && n >= 0 ? n : 0;
 };
 
+// --- date helpers (client-side) ---
+function ymd(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+function thisMonthRange(): Range {
+  const now = new Date();
+  return { from: ymd(new Date(now.getFullYear(), now.getMonth(), 1)), to: ymd(now) };
+}
+function lastMonthRange(): Range {
+  const now = new Date();
+  return {
+    from: ymd(new Date(now.getFullYear(), now.getMonth() - 1, 1)),
+    to: ymd(new Date(now.getFullYear(), now.getMonth(), 0)), // last day of prev month
+  };
+}
+function defaultRanges(): AllRanges {
+  const tm = thisMonthRange();
+  return { bics: { ...tm }, telnyx: { ...tm }, acrobits: { ...tm } };
+}
+function daysInclusive(from: string, to: string): number {
+  const a = new Date(`${from}T00:00:00`).getTime();
+  const b = new Date(`${to}T00:00:00`).getTime();
+  if (Number.isNaN(a) || Number.isNaN(b) || b < a) return 30;
+  return Math.max(1, Math.round((b - a) / 86_400_000) + 1);
+}
+function sameRange(a: Range, b: Range): boolean {
+  return a.from === b.from && a.to === b.to;
+}
+function presetOf(r: Range): "this" | "last" | "custom" {
+  if (sameRange(r, thisMonthRange())) return "this";
+  if (sameRange(r, lastMonthRange())) return "last";
+  return "custom";
+}
+
 interface Row {
   label: string;
   units: string;
@@ -128,16 +168,14 @@ const EMPTY: VendorCosts = {
 };
 
 export function RevenueMarginCard() {
-  const fetcher = useCallback(() => getVendorCosts(), []);
-  const { data, loading, error } = useAdminFetch(fetcher, []);
-
   const [rates, setRates] = useState<AllRates>(DEFAULT_RATES);
+  const [ranges, setRanges] = useState<AllRanges | null>(null);
   const [tab, setTab] = useState<Vendor>("bics");
 
-  // Load persisted rates on mount (client-only, to avoid a hydration mismatch).
+  // Load persisted rates + ranges on mount (client-only, avoids hydration drift).
   useEffect(() => {
     try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
+      const raw = window.localStorage.getItem(RATES_KEY);
       if (raw) {
         const saved = JSON.parse(raw) as Partial<AllRates>;
         setRates({
@@ -149,38 +187,69 @@ export function RevenueMarginCard() {
     } catch {
       /* ignore malformed storage */
     }
+    try {
+      const raw = window.localStorage.getItem(RANGES_KEY);
+      const d = defaultRanges();
+      if (raw) {
+        const saved = JSON.parse(raw) as Partial<AllRanges>;
+        setRanges({
+          bics: { ...d.bics, ...saved.bics },
+          telnyx: { ...d.telnyx, ...saved.telnyx },
+          acrobits: { ...d.acrobits, ...saved.acrobits },
+        });
+        return;
+      }
+      setRanges(d);
+    } catch {
+      setRanges(defaultRanges());
+    }
   }, []);
 
   const updateRate = useCallback((vendor: Vendor, key: string, value: string) => {
     setRates((prev) => {
       const next = { ...prev, [vendor]: { ...prev[vendor], [key]: value } };
       try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        window.localStorage.setItem(RATES_KEY, JSON.stringify(next));
       } catch {
-        /* storage may be unavailable (private mode) — calc still works */
+        /* storage may be unavailable */
       }
       return next;
     });
   }, []);
 
-  // Real-time cost calculation (recomputes on rate or data change).
+  const updateRange = useCallback((vendor: Vendor, patch: Partial<Range>) => {
+    setRanges((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, [vendor]: { ...prev[vendor], ...patch } };
+      try {
+        window.localStorage.setItem(RANGES_KEY, JSON.stringify(next));
+      } catch {
+        /* storage may be unavailable */
+      }
+      return next;
+    });
+  }, []);
+
+  const rangesKey = ranges ? JSON.stringify(ranges) : "";
+  const fetcher = useCallback(
+    () => getVendorCosts(ranges ?? {}),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rangesKey],
+  );
+  const { data, loading, error } = useAdminFetch(fetcher, [rangesKey]);
+
+  // Per-vendor cost line items + totals (each from its own period's volumes).
   const calc = useMemo(() => {
     const d = data ?? EMPTY;
     const r = {
-      bics: Object.fromEntries(
-        Object.entries(rates.bics).map(([k, v]) => [k, parseRate(v)]),
-      ) as Record<string, number>,
-      telnyx: Object.fromEntries(
-        Object.entries(rates.telnyx).map(([k, v]) => [k, parseRate(v)]),
-      ) as Record<string, number>,
-      acrobits: Object.fromEntries(
-        Object.entries(rates.acrobits).map(([k, v]) => [k, parseRate(v)]),
-      ) as Record<string, number>,
-    };
+      bics: Object.fromEntries(Object.entries(rates.bics).map(([k, v]) => [k, parseRate(v)])),
+      telnyx: Object.fromEntries(Object.entries(rates.telnyx).map(([k, v]) => [k, parseRate(v)])),
+      acrobits: Object.fromEntries(Object.entries(rates.acrobits).map(([k, v]) => [k, parseRate(v)])),
+    } as Record<Vendor, Record<string, number>>;
 
     const bicsRows: Row[] = [
       {
-        label: "SIM orders (new this month)",
+        label: "SIM orders (new this period)",
         units: `${num(d.bics.new_sims_this_month)}`,
         rate: r.bics.simOrder,
         cost: d.bics.new_sims_this_month * r.bics.simOrder,
@@ -250,14 +319,12 @@ export function RevenueMarginCard() {
         cost: d.telnyx.active_dids * r.telnyx.did,
       },
       {
-        // One CNAM listing per active number.
         label: "CNAM",
         units: `${num(d.telnyx.active_dids)}`,
         rate: r.telnyx.cnam,
         cost: d.telnyx.active_dids * r.telnyx.cnam,
       },
       {
-        // One E911 address per active number (no separate DB count yet).
         label: "E911",
         units: `${num(d.telnyx.active_dids)}`,
         rate: r.telnyx.e911,
@@ -275,34 +342,42 @@ export function RevenueMarginCard() {
     ];
 
     const total = (rows: Row[]) => rows.reduce((s, x) => s + x.cost, 0);
-    const bicsTotal = total(bicsRows);
-    const telnyxTotal = total(telnyxRows);
-    const acrobitsTotal = total(acrobitsRows);
-    const totalCost = bicsTotal + telnyxTotal + acrobitsTotal;
-    const revenue = d.mrr;
-    const grossMargin = revenue - totalCost;
-    const marginPct = revenue > 0 ? (grossMargin / revenue) * 100 : 0;
-    const perSubMargin = d.subscribers > 0 ? grossMargin / d.subscribers : 0;
-
+    const totalByVendor = {
+      bics: total(bicsRows),
+      telnyx: total(telnyxRows),
+      acrobits: total(acrobitsRows),
+    };
     return {
       rowsByVendor: { bics: bicsRows, telnyx: telnyxRows, acrobits: acrobitsRows },
-      totalByVendor: { bics: bicsTotal, telnyx: telnyxTotal, acrobits: acrobitsTotal },
-      totalCost,
-      revenue,
-      grossMargin,
-      marginPct,
-      perSubMargin,
+      totalByVendor,
+      totalCost: totalByVendor.bics + totalByVendor.telnyx + totalByVendor.acrobits,
       subscribers: d.subscribers,
+      mrr: d.mrr,
     };
   }, [data, rates]);
 
+  // Revenue is approximated over the widest of the three vendor periods.
+  const widestDays = ranges
+    ? daysInclusive(
+      [ranges.bics.from, ranges.telnyx.from, ranges.acrobits.from].sort()[0],
+      [ranges.bics.to, ranges.telnyx.to, ranges.acrobits.to].sort().slice(-1)[0],
+    )
+    : 30;
+  const revenue = calc.mrr * (widestDays / 30);
+  const grossMargin = revenue - calc.totalCost;
+  const marginPct = revenue > 0 ? (grossMargin / revenue) * 100 : 0;
+  const perSubMargin = calc.subscribers > 0 ? grossMargin / calc.subscribers : 0;
+  const aligned = ranges
+    ? sameRange(ranges.bics, ranges.telnyx) && sameRange(ranges.telnyx, ranges.acrobits)
+    : true;
+
   const chartData = [
     {
-      name: "This month",
+      name: "Period",
       bics: calc.totalByVendor.bics,
       telnyx: calc.totalByVendor.telnyx,
       acrobits: calc.totalByVendor.acrobits,
-      revenue: calc.revenue,
+      revenue,
     },
   ];
 
@@ -314,12 +389,12 @@ export function RevenueMarginCard() {
         </h2>
         {data && (
           <span className="text-xs text-slate-400">
-            {data.subscribers.toLocaleString()} active subscribers · current month
+            {data.subscribers.toLocaleString()} active subscribers
           </span>
         )}
       </div>
 
-      {loading ? (
+      {loading || !ranges ? (
         <div className="flex h-[220px] items-center justify-center text-slate-400">
           <Loader2 className="h-5 w-5 animate-spin" />
         </div>
@@ -327,27 +402,39 @@ export function RevenueMarginCard() {
         <p className="py-6 text-sm text-red-600">{error}</p>
       ) : (
         <>
+          {!aligned && (
+            <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+              Note: vendor billing periods differ. Costs may not represent the same
+              calendar period.
+            </p>
+          )}
+
           {/* Summary — always visible */}
           <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Summary label="BICS" value={usd(calc.totalByVendor.bics)} tone="neutral" />
             <Summary label="Telnyx" value={usd(calc.totalByVendor.telnyx)} tone="neutral" />
             <Summary label="Acrobits" value={usd(calc.totalByVendor.acrobits)} tone="neutral" />
-            <Summary label="Total vendor cost" value={usd(calc.totalCost)} tone="neutral" />
-            <Summary label="Plan revenue" value={usd(calc.revenue)} tone="neutral" />
+            <Summary label="Total cost" value={usd(calc.totalCost)} tone="neutral" />
+            <Summary
+              label="Plan revenue"
+              value={usd(revenue)}
+              sub={`≈ ${widestDays}-day period`}
+              tone="neutral"
+            />
             <Summary
               label="Gross margin"
-              value={usd(calc.grossMargin)}
-              tone={calc.grossMargin >= 0 ? "good" : "bad"}
+              value={usd(grossMargin)}
+              tone={grossMargin >= 0 ? "good" : "bad"}
             />
             <Summary
               label="Margin"
-              value={`${calc.marginPct.toFixed(1)}%`}
-              tone={calc.marginPct >= 0 ? "good" : "bad"}
+              value={`${marginPct.toFixed(1)}%`}
+              tone={marginPct >= 0 ? "good" : "bad"}
             />
             <Summary
               label="Per-sub margin"
-              value={`${usd(calc.perSubMargin)}/mo`}
-              tone={calc.perSubMargin >= 0 ? "good" : "bad"}
+              value={`${usd(perSubMargin)}/mo`}
+              tone={perSubMargin >= 0 ? "good" : "bad"}
             />
           </div>
 
@@ -410,8 +497,15 @@ export function RevenueMarginCard() {
             ))}
           </div>
 
-          {/* Active tab: editable rates + breakdown table */}
           <div className="pt-4">
+            {/* Per-vendor billing period */}
+            <DateRangeControls
+              range={ranges[tab]}
+              onChange={(patch) => updateRange(tab, patch)}
+              onPreset={(r) => updateRange(tab, r)}
+            />
+
+            {/* Editable rates */}
             <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
               {RATE_FIELDS[tab].map((f) => (
                 <label key={f.key} className="flex flex-col gap-1">
@@ -442,6 +536,61 @@ export function RevenueMarginCard() {
         </>
       )}
     </section>
+  );
+}
+
+function DateRangeControls({
+  range,
+  onChange,
+  onPreset,
+}: {
+  range: Range;
+  onChange: (patch: Partial<Range>) => void;
+  onPreset: (r: Range) => void;
+}) {
+  const preset = presetOf(range);
+  const presetBtn = (key: "this" | "last" | "custom", label: string, apply?: () => void) => (
+    <button
+      type="button"
+      onClick={apply}
+      className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
+        preset === key
+          ? "bg-slate-800 text-white"
+          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+      }`}
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <div className="mb-5 flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <div className="flex gap-1.5">
+        {presetBtn("this", "This Month", () => onPreset(thisMonthRange()))}
+        {presetBtn("last", "Last Month", () => onPreset(lastMonthRange()))}
+        {presetBtn("custom", "Custom Range")}
+      </div>
+      <label className="flex flex-col gap-1">
+        <span className="text-[10px] uppercase tracking-wide text-slate-400">From</span>
+        <input
+          type="date"
+          value={range.from}
+          max={range.to}
+          onChange={(e) => onChange({ from: e.target.value })}
+          className="rounded-md border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+        />
+      </label>
+      <label className="flex flex-col gap-1">
+        <span className="text-[10px] uppercase tracking-wide text-slate-400">To</span>
+        <input
+          type="date"
+          value={range.to}
+          min={range.from}
+          onChange={(e) => onChange({ to: e.target.value })}
+          className="rounded-md border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+        />
+      </label>
+    </div>
   );
 }
 
@@ -491,10 +640,12 @@ function BreakdownTable({
 function Summary({
   label,
   value,
+  sub,
   tone,
 }: {
   label: string;
   value: string;
+  sub?: string;
   tone: "neutral" | "good" | "bad";
 }) {
   const toneClass =
@@ -505,6 +656,7 @@ function Summary({
       <p className={`mt-0.5 font-display text-lg font-semibold tabular-nums ${toneClass}`}>
         {value}
       </p>
+      {sub && <p className="text-[10px] text-slate-400">{sub}</p>}
     </div>
   );
 }

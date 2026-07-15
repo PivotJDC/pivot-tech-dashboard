@@ -274,9 +274,30 @@ export interface VendorCosts {
   mrr: number;
 }
 
-/** GET /admin/analytics/vendor-costs — per-vendor volumes + subscribers + MRR. */
-export function getVendorCosts() {
-  return adminRequest<VendorCosts>("/admin/analytics/vendor-costs");
+/** A from/to date range (YYYY-MM-DD); either bound optional. */
+export interface DateRange {
+  from?: string;
+  to?: string;
+}
+
+/**
+ * GET /admin/analytics/vendor-costs — per-vendor volumes + subscribers + MRR.
+ * Each vendor bills on its own cycle, so pass an independent range per vendor;
+ * a missing range defaults (server-side) to the current calendar month.
+ */
+export function getVendorCosts(
+  ranges: { bics?: DateRange; telnyx?: DateRange; acrobits?: DateRange } = {},
+) {
+  return adminRequest<VendorCosts>(
+    `/admin/analytics/vendor-costs${qs({
+      bics_from: ranges.bics?.from,
+      bics_to: ranges.bics?.to,
+      telnyx_from: ranges.telnyx?.from,
+      telnyx_to: ranges.telnyx?.to,
+      acrobits_from: ranges.acrobits?.from,
+      acrobits_to: ranges.acrobits?.to,
+    })}`,
+  );
 }
 
 export interface HourlyActivity {
